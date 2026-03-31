@@ -68,14 +68,34 @@ docs/
 
 ---
 
-> **Deep Analysis Reports**: Full source code analysis reports are available in the [`docs/`](docs/) directory (bilingual EN/ZH):
-> - Telemetry & Privacy (opt-out-free data collection pipeline)
-> - Hidden Features & Model Codenames (Tengu, Capybara, Fennec, Numbat)
-> - Undercover Mode (AI attribution stripping in open-source contributions)
-> - Remote Control & Killswitches (managed settings, feature flags)
-> - Future Roadmap (Numbat model, KAIROS autonomous mode, voice input)
->
-> **English**: [`docs/en/`](docs/en/) | **中文**: [`docs/zh/`](docs/zh/)
+## Deep Analysis Reports (`docs/`)
+
+Source code analysis reports derived from decompiled v2.1.88. Bilingual (EN/ZH).
+
+```
+docs/
+├── en/                                    # English
+│   ├── 01-telemetry-and-privacy.md        # Telemetry & Privacy — two-tier analytics pipeline, what's collected, why you can't opt out
+│   ├── 02-hidden-features-and-codenames.md# Hidden Features — model codenames (Capybara/Tengu/Numbat), feature flags, internal vs external user differences
+│   ├── 03-undercover-mode.md              # Undercover Mode — how Anthropic employees hide AI authorship in open-source repos
+│   ├── 04-remote-control-and-killswitches.md # Remote Control — managed settings (accept or die), killswitches, model overrides
+│   └── 05-future-roadmap.md               # Future Roadmap — Numbat (next model), KAIROS autonomous agent, voice mode, unreleased tools
+│
+└── zh/                                    # 中文
+    ├── 01-遥测与隐私分析.md                  # 同上，中文版
+    ├── 02-隐藏功能与模型代号.md
+    ├── 03-卧底模式分析.md
+    ├── 04-远程控制与紧急开关.md
+    └── 05-未来路线图.md
+```
+
+| # | Topic | Key Findings |
+|---|-------|-------------|
+| 01 | **Telemetry & Privacy** | Two analytics sinks (1P → Anthropic, Datadog). Environment fingerprint, process metrics, repo hash on every event. **No UI-exposed opt-out** for 1st-party logging. `OTEL_LOG_TOOL_DETAILS=1` enables full tool input capture. |
+| 02 | **Hidden Features & Codenames** | Animal codenames (Capybara v8, Tengu, Fennec→Opus 4.6, **Numbat** next). Feature flags use random word pairs (`tengu_frond_boric`) to obscure purpose. Internal users get better prompts, verification agents, and effort anchors. Hidden commands: `/btw`, `/stickers`. |
+| 03 | **Undercover Mode** | Anthropic employees auto-enter undercover mode in public repos. Model instructed: *"Do not blow your cover"* — strip all AI attribution, write commits "as a human developer would." **No force-OFF exists.** Raises transparency questions for open-source communities. |
+| 04 | **Remote Control** | Hourly polling of `/api/claude_code/settings`. Dangerous changes show blocking dialog — **reject = app exits**. 6+ killswitches (bypass permissions, fast mode, voice mode, analytics sink). GrowthBook flags can change any user's behavior without consent. |
+| 05 | **Future Roadmap** | **Numbat** codename confirmed. Opus 4.7 / Sonnet 4.8 in development. **KAIROS** = fully autonomous agent mode with `<tick>` heartbeats, push notifications, PR subscriptions. Voice mode (push-to-talk) ready but gated. 17 unreleased tools found. |
 
 ---
 
