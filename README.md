@@ -66,6 +66,118 @@ docs/
 
 ---
 
+## Missing Modules Notice (108 modules)
+
+> **This source is incomplete.** 108 modules referenced by `feature()`-gated branches are **not included** in the npm package.
+> They exist only in Anthropic's internal monorepo and were dead-code-eliminated at compile time.
+> They **cannot** be recovered from `cli.js`, `sdk-tools.d.ts`, or any published artifact.
+
+### Anthropic Internal Code (~70 modules, never published)
+
+These modules have no source files anywhere in the npm package. They are internal Anthropic infrastructure.
+
+| Module | Purpose | Feature Gate |
+|--------|---------|-------------|
+| `daemon/main.js` | Background daemon supervisor | `DAEMON` |
+| `daemon/workerRegistry.js` | Daemon worker registry | `DAEMON` |
+| `proactive/index.js` | Proactive notification system | `PROACTIVE` |
+| `contextCollapse/index.js` | Context collapse service (experimental) | `CONTEXT_COLLAPSE` |
+| `contextCollapse/operations.js` | Collapse operations | `CONTEXT_COLLAPSE` |
+| `contextCollapse/persist.js` | Collapse persistence | `CONTEXT_COLLAPSE` |
+| `skillSearch/featureCheck.js` | Remote skill feature check | `EXPERIMENTAL_SKILL_SEARCH` |
+| `skillSearch/remoteSkillLoader.js` | Remote skill loader | `EXPERIMENTAL_SKILL_SEARCH` |
+| `skillSearch/remoteSkillState.js` | Remote skill state | `EXPERIMENTAL_SKILL_SEARCH` |
+| `skillSearch/telemetry.js` | Skill search telemetry | `EXPERIMENTAL_SKILL_SEARCH` |
+| `skillSearch/localSearch.js` | Local skill search | `EXPERIMENTAL_SKILL_SEARCH` |
+| `skillSearch/prefetch.js` | Skill prefetch | `EXPERIMENTAL_SKILL_SEARCH` |
+| `coordinator/workerAgent.js` | Multi-agent coordinator worker | `COORDINATOR_MODE` |
+| `bridge/peerSessions.js` | Bridge peer session management | `BRIDGE_MODE` |
+| `assistant/index.js` | Kairos assistant mode | `KAIROS` |
+| `assistant/AssistantSessionChooser.js` | Assistant session picker | `KAIROS` |
+| `compact/reactiveCompact.js` | Reactive context compaction | `CACHED_MICROCOMPACT` |
+| `compact/snipCompact.js` | Snip-based compaction | `HISTORY_SNIP` |
+| `compact/snipProjection.js` | Snip projection | `HISTORY_SNIP` |
+| `compact/cachedMCConfig.js` | Cached micro-compact config | `CACHED_MICROCOMPACT` |
+| `sessionTranscript/sessionTranscript.js` | Session transcript service | `TRANSCRIPT_CLASSIFIER` |
+| `commands/agents-platform/index.js` | Internal agents platform | `ant` (internal) |
+| `commands/assistant/index.js` | Assistant command | `KAIROS` |
+| `commands/buddy/index.js` | Buddy system notifications | `BUDDY` |
+| `commands/fork/index.js` | Fork subagent command | `FORK_SUBAGENT` |
+| `commands/peers/index.js` | Multi-peer commands | `BRIDGE_MODE` |
+| `commands/proactive.js` | Proactive command | `PROACTIVE` |
+| `commands/remoteControlServer/index.js` | Remote control server | `DAEMON` + `BRIDGE_MODE` |
+| `commands/subscribe-pr.js` | GitHub PR subscription | `KAIROS_GITHUB_WEBHOOKS` |
+| `commands/torch.js` | Internal debug tool | `TORCH` |
+| `commands/workflows/index.js` | Workflow commands | `WORKFLOW_SCRIPTS` |
+| `jobs/classifier.js` | Internal job classifier | `TEMPLATES` |
+| `memdir/memoryShapeTelemetry.js` | Memory shape telemetry | `MEMORY_SHAPE_TELEMETRY` |
+| `services/sessionTranscript/sessionTranscript.js` | Session transcript | `TRANSCRIPT_CLASSIFIER` |
+| `tasks/LocalWorkflowTask/LocalWorkflowTask.js` | Local workflow task | `WORKFLOW_SCRIPTS` |
+| `protectedNamespace.js` | Internal namespace guard | `ant` (internal) |
+| `protectedNamespace.js` (envUtils) | Protected namespace runtime | `ant` (internal) |
+| `coreTypes.generated.js` | Generated core types | `ant` (internal) |
+| `devtools.js` | Internal dev tools | `ant` (internal) |
+| `attributionHooks.js` | Internal attribution hooks | `COMMIT_ATTRIBUTION` |
+| `systemThemeWatcher.js` | System theme watcher | `AUTO_THEME` |
+| `udsClient.js` / `udsMessaging.js` | UDS messaging client | `UDS_INBOX` |
+| `systemThemeWatcher.js` | Theme watcher | `AUTO_THEME` |
+
+### Feature-Gated Tools (~20 modules, DCE'd from bundle)
+
+These tools have type signatures in `sdk-tools.d.ts` but their implementations were stripped at compile time.
+
+| Tool | Purpose | Feature Gate |
+|------|---------|-------------|
+| `REPLTool` | Interactive REPL (VM sandbox) | `ant` (internal) |
+| `SnipTool` | Context snipping | `HISTORY_SNIP` |
+| `SleepTool` | Sleep/delay in agent loop | `PROACTIVE` / `KAIROS` |
+| `MonitorTool` | MCP monitoring | `MONITOR_TOOL` |
+| `OverflowTestTool` | Overflow testing | `OVERFLOW_TEST_TOOL` |
+| `WorkflowTool` | Workflow execution | `WORKFLOW_SCRIPTS` |
+| `WebBrowserTool` | Browser automation | `WEB_BROWSER_TOOL` |
+| `TerminalCaptureTool` | Terminal capture | `TERMINAL_PANEL` |
+| `TungstenTool` | Internal perf monitoring | `ant` (internal) |
+| `VerifyPlanExecutionTool` | Plan verification | `CLAUDE_CODE_VERIFY_PLAN` |
+| `SendUserFileTool` | Send files to users | `KAIROS` |
+| `SubscribePRTool` | GitHub PR subscription | `KAIROS_GITHUB_WEBHOOKS` |
+| `SuggestBackgroundPRTool` | Suggest background PRs | `KAIROS` |
+| `PushNotificationTool` | Push notifications | `KAIROS` |
+| `CtxInspectTool` | Context inspection | `CONTEXT_COLLAPSE` |
+| `ListPeersTool` | List active peers | `UDS_INBOX` |
+| `DiscoverSkillsTool` | Skill discovery | `EXPERIMENTAL_SKILL_SEARCH` |
+
+### Text/Prompt Assets (~6 files)
+
+These are internal prompt templates and documentation, never published.
+
+| File | Purpose |
+|------|---------|
+| `yolo-classifier-prompts/auto_mode_system_prompt.txt` | Auto-mode system prompt for classifier |
+| `yolo-classifier-prompts/permissions_anthropic.txt` | Anthropic-internal permission prompt |
+| `yolo-classifier-prompts/permissions_external.txt` | External user permission prompt |
+| `verify/SKILL.md` | Verification skill documentation |
+| `verify/examples/cli.md` | CLI verification examples |
+| `verify/examples/server.md` | Server verification examples |
+
+### Why They're Missing
+
+```
+  Anthropic Internal Monorepo              Published npm Package
+  ──────────────────────────               ─────────────────────
+  feature('DAEMON') → true    ──build──→   feature('DAEMON') → false
+  ↓                                         ↓
+  daemon/main.js  ← INCLUDED    ──bundle─→  daemon/main.js  ← DELETED (DCE)
+  tools/REPLTool  ← INCLUDED    ──bundle─→  tools/REPLTool  ← DELETED (DCE)
+  proactive/      ← INCLUDED    ──bundle─→  (referenced but absent from src/)
+  ```
+
+  Bun's `feature()` is a **compile-time intrinsic**:
+  - Returns `true` in Anthropic's internal build → code is kept in the bundle
+  - Returns `false` in the published build → code is dead-code-eliminated
+  - The 108 modules simply do not exist anywhere in the published artifact
+
+---
+
 ## Copyright & Disclaimer
 
 ```text
