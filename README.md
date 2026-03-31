@@ -68,6 +68,17 @@ docs/
 
 ---
 
+## Table of Contents
+
+- [Deep Analysis Reports (`docs/`)](#deep-analysis-reports-docs) — Telemetry, codenames, undercover mode, remote control, future roadmap
+- [Missing Modules Notice](#missing-modules-notice-108-modules) — 108 feature-gated modules not in the npm package
+- [Architecture Overview](#architecture-overview) — Entry → Query Engine → Tools/Services/State
+- [Tool System & Permissions](#tool-system-architecture) — 40+ tools, permission flow, sub-agents
+- [The 12 Progressive Harness Mechanisms](#the-12-progressive-harness-mechanisms) — How Claude Code layers production features on the agent loop
+- [Build Notes](#build-notes) — Why this source isn't directly compilable
+
+---
+
 ## Deep Analysis Reports (`docs/`)
 
 Source code analysis reports derived from decompiled v2.1.88. Bilingual (EN/ZH).
