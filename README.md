@@ -85,20 +85,22 @@ Source code analysis reports derived from decompiled v2.1.88. Bilingual (EN/ZH).
 
 ```
 docs/
-├── en/                                    # English
-│   ├── 01-telemetry-and-privacy.md        # Telemetry & Privacy — two-tier analytics pipeline, what's collected, why you can't opt out
-│   ├── 02-hidden-features-and-codenames.md# Hidden Features — model codenames (Capybara/Tengu/Numbat), feature flags, internal vs external user differences
-│   ├── 03-undercover-mode.md              # Undercover Mode — how Anthropic employees hide AI authorship in open-source repos
-│   ├── 04-remote-control-and-killswitches.md # Remote Control — managed settings (accept or die), killswitches, model overrides
-│   └── 05-future-roadmap.md               # Future Roadmap — Numbat (next model), KAIROS autonomous agent, voice mode, unreleased tools
+├── en/                                        # English
+│   ├── [01-telemetry-and-privacy.md]          # Telemetry & Privacy — what's collected, why you can't opt out
+│   ├── [02-hidden-features-and-codenames.md]  # Codenames (Capybara/Tengu/Numbat), feature flags, internal vs external
+│   ├── [03-undercover-mode.md]                # Undercover Mode — hiding AI authorship in open-source repos
+│   ├── [04-remote-control-and-killswitches.md]# Remote Control — managed settings, killswitches, model overrides
+│   └── [05-future-roadmap.md]                 # Future Roadmap — Numbat, KAIROS, voice mode, unreleased tools
 │
-└── zh/                                    # 中文
-    ├── 01-遥测与隐私分析.md                  # 同上，中文版
-    ├── 02-隐藏功能与模型代号.md
-    ├── 03-卧底模式分析.md
-    ├── 04-远程控制与紧急开关.md
-    └── 05-未来路线图.md
+└── zh/                                        # 中文
+    ├── [01-遥测与隐私分析.md]                    # 遥测与隐私 — 收集了什么，为什么无法退出
+    ├── [02-隐藏功能与模型代号.md]                # 隐藏功能 — 模型代号，feature flag，内外用户差异
+    ├── [03-卧底模式分析.md]                     # 卧底模式 — 在开源项目中隐藏 AI 身份
+    ├── [04-远程控制与紧急开关.md]                # 远程控制 — 托管设置，紧急开关，模型覆盖
+    └── [05-未来路线图.md]                       # 未来路线图 — Numbat，KAIROS，语音模式，未上线工具
 ```
+
+> Click any filename above to jump to the full report.
 
 | # | Topic | Key Findings |
 |---|-------|-------------|
