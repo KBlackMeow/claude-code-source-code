@@ -64,6 +64,19 @@ docs/
 | 04 | **Remote Control** | Hourly polling of `/api/claude_code/settings`. Dangerous changes show blocking dialog — **reject = app exits**. 6+ killswitches (bypass permissions, fast mode, voice mode, analytics sink). GrowthBook flags can change any user's behavior without consent. |
 | 05 | **Future Roadmap** | **Numbat** codename confirmed. Opus 4.7 / Sonnet 4.8 in development. **KAIROS** = fully autonomous agent mode with `<tick>` heartbeats, push notifications, PR subscriptions. Voice mode (push-to-talk) ready but gated. 17 unreleased tools found. |
 
+**Language**: **English** | [中文](README_CN.md)
+
+---
+
+> **Deep Analysis Reports**: Full source code analysis reports are available in the [`docs/`](docs/) directory (bilingual EN/ZH):
+> - Telemetry & Privacy (opt-out-free data collection pipeline)
+> - Hidden Features & Model Codenames (Tengu, Capybara, Fennec, Numbat)
+> - Undercover Mode (AI attribution stripping in open-source contributions)
+> - Remote Control & Killswitches (managed settings, feature flags)
+> - Future Roadmap (Numbat model, KAIROS autonomous mode, voice input)
+>
+> **English**: [`docs/en/`](docs/en/) | **中文**: [`docs/zh/`](docs/zh/)
+
 ---
 
 ## Missing Modules Notice (108 modules)
@@ -75,6 +88,9 @@ docs/
 ### Anthropic Internal Code (~70 modules, never published)
 
 These modules have no source files anywhere in the npm package. They are internal Anthropic infrastructure.
+
+<details>
+<summary>Click to expand full list</summary>
 
 | Module | Purpose | Feature Gate |
 |--------|---------|-------------|
@@ -122,9 +138,14 @@ These modules have no source files anywhere in the npm package. They are interna
 | `udsClient.js` / `udsMessaging.js` | UDS messaging client | `UDS_INBOX` |
 | `systemThemeWatcher.js` | Theme watcher | `AUTO_THEME` |
 
+</details>
+
 ### Feature-Gated Tools (~20 modules, DCE'd from bundle)
 
 These tools have type signatures in `sdk-tools.d.ts` but their implementations were stripped at compile time.
+
+<details>
+<summary>Click to expand full list</summary>
 
 | Tool | Purpose | Feature Gate |
 |------|---------|-------------|
@@ -146,9 +167,14 @@ These tools have type signatures in `sdk-tools.d.ts` but their implementations w
 | `ListPeersTool` | List active peers | `UDS_INBOX` |
 | `DiscoverSkillsTool` | Skill discovery | `EXPERIMENTAL_SKILL_SEARCH` |
 
+</details>
+
 ### Text/Prompt Assets (~6 files)
 
 These are internal prompt templates and documentation, never published.
+
+<details>
+<summary>Click to expand</summary>
 
 | File | Purpose |
 |------|---------|
@@ -158,6 +184,8 @@ These are internal prompt templates and documentation, never published.
 | `verify/SKILL.md` | Verification skill documentation |
 | `verify/examples/cli.md` | CLI verification examples |
 | `verify/examples/server.md` | Server verification examples |
+
+</details>
 
 ### Why They're Missing
 
