@@ -282,18 +282,36 @@ This project patches the original Claude Code source to support fully env-var-ba
 # 1. Install dependencies
 npm install
 
-# 2. Create .env file with your API key
+# 2. Run the pre-built CLI directly:
+node dist/cli.js              # Interactive mode
+node dist/cli.js -p "hello"   # Single query mode
+
+# Or install globally:
+npm install -g .
+claude -p "hello"
+```
+
+#### Authentication
+
+By default, Claude Code requires logging in with your Anthropic account:
+
+```bash
+node dist/cli.js login
+```
+
+#### Env-var Mode (OAuth bypass)
+
+If you prefer using an API key from a `.env` file instead of logging in:
+
+```bash
+# 1. Create .env with your API key
 echo "ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxx" > .env
 
-# 3a. Run the pre-built CLI directly (recommended):
-node dist/cli.js --use-env
-
-# 3b. Or build from source first (if you modified src/):
-node scripts/build.mjs
+# 2. Run with --use-env flag
 node dist/cli.js --use-env
 ```
 
-> **Note**: The `--use-env` flag requires our patches in `src/main.tsx` to be compiled into the bundle. If using the pre-built `dist/cli.js`, rebuild after modifying any source files.
+> **Note**: The `--use-env` flag requires our patches in `src/main.tsx` to be compiled into the bundle. If using the pre-built `dist/cli.js`, rebuild after modifying any source files: `node scripts/build.mjs`.
 
 ### Environment Variables
 
@@ -305,10 +323,12 @@ node dist/cli.js --use-env
 
 ### How It Works
 
-The `--use-env` flag triggers the patches in `src/main.tsx`:
+**Without `--use-env`**: Runs exactly like the official Claude Code CLI — authentication goes through OAuth login, keychain, or config file.
+
+**With `--use-env`**: Triggers the patches in `src/main.tsx`:
 
 1. Loads `.env` via `dotenv`
-2. Sets `CLAUDE_CODE_USE_ENV_ONLY=true` to bypass OAuth login and keychain lookups
+2. Sets `CLAUDE_CODE_USE_ENV_ONLY=true` to bypass OAuth login, keychain, and config file lookups
 3. Reads `ANTHROPIC_API_KEY` directly from the environment
 4. Supports `ANTHROPIC_BASE_URL` for custom API routes
 5. `CLAUDE_CODE_MODEL_OVERRIDE` lets you force a specific model
