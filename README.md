@@ -12,6 +12,7 @@
 ## Table of Contents
 
 - [Deep Analysis Reports (`docs/`)](#deep-analysis-reports-docs) — Telemetry, codenames, undercover mode, remote control, future roadmap
+- [Quick Start](#quick-start) — How to set up and run this project
 - [Directory Reference](#directory-reference) — Code structure tree
 - [Architecture Overview](#architecture-overview) — Entry → Query Engine → Tools/Services/State
 - [Tool System & Permissions](#tool-system-architecture) — 40+ tools, permission flow, sub-agents
@@ -71,6 +72,7 @@ docs/
 ## Table of Contents
 
 - [Deep Analysis Reports (`docs/`)](#deep-analysis-reports-docs) — Telemetry, codenames, undercover mode, remote control, future roadmap
+- [Quick Start](#quick-start) — How to set up and run this project
 - [Missing Modules Notice](#missing-modules-notice-108-modules) — 108 feature-gated modules not in the npm package
 - [Architecture Overview](#architecture-overview) — Entry → Query Engine → Tools/Services/State
 - [Tool System & Permissions](#tool-system-architecture) — 40+ tools, permission flow, sub-agents
@@ -262,6 +264,50 @@ Commercial use is strictly prohibited.
 If you are the copyright owner and believe this repository content infringes your rights,
 please contact the repository owner for immediate removal.
 ```
+
+---
+
+## Quick Start
+
+This project patches the original Claude Code source to support fully env-var-based configuration, bypassing OAuth login. You can run it with your own Anthropic API key.
+
+### Prerequisites
+
+- **Node.js >= 18**
+- An [Anthropic API key](https://console.anthropic.com/)
+
+### Setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Create .env file with your API key
+echo "ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxx" > .env
+
+# 3. Run Claude Code with env-var mode
+node cli.js --use-env
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | **Yes** | Your Anthropic API key |
+| `ANTHROPIC_BASE_URL` | No | Custom API endpoint (useful for proxies) |
+| `CLAUDE_CODE_MODEL_OVERRIDE` | No | Override the model, e.g. `claude-sonnet-4-6` |
+
+### How It Works
+
+The `--use-env` flag triggers the patches in `src/main.tsx`:
+
+1. Loads `.env` via `dotenv`
+2. Sets `CLAUDE_CODE_USE_ENV_ONLY=true` to bypass OAuth login and keychain lookups
+3. Reads `ANTHROPIC_API_KEY` directly from the environment
+4. Supports `ANTHROPIC_BASE_URL` for custom API routes
+5. `CLAUDE_CODE_MODEL_OVERRIDE` lets you force a specific model
+
+> **Note**: This source is decompiled and may have subtle incompatibilities with the official `@anthropic-ai/claude-code` npm package. See [Build Notes](#build-notes) below.
 
 ---
 
