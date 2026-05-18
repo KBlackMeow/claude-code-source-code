@@ -90,6 +90,9 @@ export function getUserSpecifiedModelSetting(): ModelSetting | undefined {
  * @returns The resolved model name to use
  */
 export function getMainLoopModel(): ModelName {
+  if (process.env.CLAUDE_CODE_MODEL_OVERRIDE) {
+    return parseUserSpecifiedModel(process.env.CLAUDE_CODE_MODEL_OVERRIDE)
+  }
   const model = getUserSpecifiedModelSetting()
   if (model !== undefined && model !== null) {
     return parseUserSpecifiedModel(model)

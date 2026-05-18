@@ -151,6 +151,9 @@ export function isAnthropicAuthEnabled(): boolean {
 /** Where the auth token is being sourced from, if any. */
 // this code is closely related to isAnthropicAuthEnabled
 export function getAuthTokenSource() {
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_ENV_ONLY)) {
+    return { source: 'none' as const, hasToken: false }
+  }
   // --bare: API-key-only. apiKeyHelper (from --settings) is the only
   // bearer-token-shaped source allowed. OAuth env vars, FD tokens, and
   // keychain are ignored.
@@ -229,6 +232,14 @@ export function getAnthropicApiKeyWithSource(
   key: null | string
   source: ApiKeySource
 } {
+  // If use-env is set, strictly use ANTHROPIC_API_KEY from .env (already in process.env)
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_ENV_ONLY)) {
+    if (process.env.ANTHROPIC_API_KEY) {
+      return { key: process.env.ANTHROPIC_API_KEY, source: 'ANTHROPIC_API_KEY' }
+    }
+    return { key: null, source: 'none' }
+  }
+
   // --bare: hermetic auth. Only ANTHROPIC_API_KEY env or apiKeyHelper from
   // the --settings flag. Never touches keychain, config file, or approval
   // lists. 3P (Bedrock/Vertex/Foundry) uses provider creds, not this path.
@@ -1562,6 +1573,9 @@ async function checkAndRefreshOAuthTokenIfNeededImpl(
 }
 
 export function isClaudeAISubscriber(): boolean {
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_ENV_ONLY)) {
+    return false
+  }
   if (!isAnthropicAuthEnabled()) {
     return false
   }

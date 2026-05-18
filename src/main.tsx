@@ -1,3 +1,16 @@
+import { config as loadDotenv } from 'dotenv'
+import { join } from 'path'
+
+// Switch: Only load .env if --use-env flag is present
+if (process.argv.includes('--use-env')) {
+  // @ts-ignore
+  loadDotenv({ path: join(process.cwd(), '.env') })
+  // Force bypass of official login
+  process.env.CLAUDE_CODE_USE_ENV_ONLY = 'true'
+  // Remove the flag so commander doesn't complain about unknown options
+  process.argv = process.argv.filter(arg => arg !== '--use-env')
+}
+
 // These side-effects must run before all other imports:
 // 1. profileCheckpoint marks entry before heavy module evaluation begins
 // 2. startMdmRawRead fires MDM subprocesses (plutil/reg query) so they run in
