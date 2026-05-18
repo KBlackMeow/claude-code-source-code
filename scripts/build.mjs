@@ -19,7 +19,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, cp, rm, stat } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
@@ -56,6 +56,7 @@ async function ensureEsbuild() {
 await rm(BUILD, { recursive: true, force: true })
 await mkdir(BUILD, { recursive: true })
 await cp(join(ROOT, 'src'), join(BUILD, 'src'), { recursive: true })
+await cp(join(ROOT, 'stubs'), join(BUILD, 'src', 'stubs'), { recursive: true })
 console.log('✅ Phase 1: Copied src/ → build-src/')
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -109,6 +110,12 @@ for await (const file of walk(join(BUILD, 'src'))) {
     changed = true
   }
 
+  // 2e. import.meta.url → CJS equivalent
+  if (src.includes('import.meta.url')) {
+    src = src.replace(/import\.meta\.url/g, "require('url').pathToFileURL(module.filename).href")
+    changed = true
+  }
+
   if (changed) {
     await writeFile(file, src, 'utf8')
     transformCount++
@@ -120,8 +127,7 @@ console.log(`✅ Phase 2: Transformed ${transformCount} files`)
 // PHASE 3: Create entry wrapper
 // ══════════════════════════════════════════════════════════════════════════════
 
-await writeFile(ENTRY, `#!/usr/bin/env node
-// Claude Code v${VERSION} — built from source
+await writeFile(ENTRY, `// Claude Code v${VERSION} — built from source
 // Copyright (c) Anthropic PBC. All rights reserved.
 import './src/entrypoints/cli.tsx'
 `, 'utf8')
@@ -135,6 +141,7 @@ await ensureEsbuild()
 
 const OUT_DIR = join(ROOT, 'dist')
 await mkdir(OUT_DIR, { recursive: true })
+await writeFile(join(OUT_DIR, 'package.json'), JSON.stringify({ type: 'commonjs' }, null, 2), 'utf8')
 const OUT_FILE = join(OUT_DIR, 'cli.js')
 
 // Run up to 5 rounds of: esbuild → collect missing → create stubs → retry
@@ -152,11 +159,25 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
       '--bundle',
       '--platform=node',
       '--target=node18',
-      '--format=esm',
+      '--format=cjs',
       `--outfile="${OUT_FILE}"`,
       `--banner:js=$'#!/usr/bin/env node\\n// Claude Code v${VERSION} (built from source)\\n// Copyright (c) Anthropic PBC. All rights reserved.\\n'`,
-      '--packages=external',
+      `--tsconfig=${join(ROOT, 'tsconfig.json')}`,
+      `--alias:src=${join(BUILD, 'src')}`,
+      `--alias:@anthropic-ai/sandbox-runtime=${join(ROOT, 'stubs', 'sandbox-runtime.ts')}`,
+      `--alias:@anthropic-ai/bedrock-sdk=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
+      `--alias:@anthropic-ai/foundry-sdk=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
+      `--alias:@anthropic-ai/vertex-sdk=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
+      `--alias:@anthropic-ai/mcpb=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
+      `--alias:@ant/claude-for-chrome-mcp=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
       '--external:bun:*',
+      '--external:@aws-sdk/client-bedrock',
+      '--external:@aws-sdk/client-sts',
+      '--external:@azure/identity',
+      '--external:modifiers-napi',
+      '--external:sharp',
+      '--loader:.md=text',
+      '--loader:.txt=text',
       '--allow-overwrite',
       '--log-level=error',
       '--log-limit=0',
@@ -172,18 +193,59 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
     esbuildOutput = (e.stderr?.toString() || '') + (e.stdout?.toString() || '')
   }
 
-  // Parse missing modules
-  const missingRe = /Could not resolve "([^"]+)"/g
-  const missing = new Set()
-  let m
-  while ((m = missingRe.exec(esbuildOutput)) !== null) {
-    const mod = m[1]
-    if (!mod.startsWith('node:') && !mod.startsWith('bun:') && !mod.startsWith('/')) {
-      missing.add(mod)
+  // Parse missing modules and the file that imported them so we can place
+  // stubs at the exact relative path esbuild expects.
+  const missing = []
+  const lines = esbuildOutput.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const modMatch = lines[i].match(/Could not resolve "([^"]+)"/)
+    if (!modMatch) continue
+
+    const mod = modMatch[1]
+    if (mod.startsWith('node:') || mod.startsWith('bun:') || mod.startsWith('/')) {
+      continue
     }
+
+    let importer
+    for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+      const locMatch = lines[j].match(/^\s*(.+:\d+:\d+):\s*$/)
+      if (locMatch) {
+        importer = locMatch[1].replace(/:\d+:\d+$/, '')
+        break
+      }
+    }
+
+    missing.push({ mod, importer })
   }
 
-  if (missing.size === 0) {
+  if (missing.length === 0) {
+    const exportFixes = new Map()
+    for (const line of lines) {
+      const exportMatch = line.match(/No matching export in "([^"]+)" for import "([^"]+)"/)
+      if (!exportMatch) continue
+      const modulePath = exportMatch[1]
+      const exportName = exportMatch[2]
+      if (modulePath.startsWith('node:') || modulePath.startsWith('bun:') || modulePath.startsWith('/')) {
+        continue
+      }
+      if (!exportFixes.has(modulePath)) exportFixes.set(modulePath, new Set())
+      exportFixes.get(modulePath).add(exportName)
+    }
+
+    if (exportFixes.size > 0) {
+      for (const [modulePath, exportNames] of exportFixes) {
+        const target = resolve(ROOT, modulePath)
+        await mkdir(dirname(target), { recursive: true }).catch(() => {})
+        const baseName = modulePath.split('/').pop().replace(/\.[tj]sx?$/, '')
+        const safeBase = baseName.replace(/[^a-zA-Z0-9_$]/g, '_') || 'stub'
+        const exports = [...exportNames].sort().map(name => `export const ${name} = 0`).join('\n')
+        const content = `// Auto-generated stub\nconst ${safeBase}Stub = 0\nexport default ${safeBase}Stub\n${exports}\n`
+        await writeFile(target, content, 'utf8')
+      }
+      console.log(`   Fixed ${exportFixes.size} modules with missing exports`)
+      continue
+    }
+
     // No more missing modules but still errors — check what
     const errLines = esbuildOutput.split('\n').filter(l => l.includes('ERROR')).slice(0, 5)
     console.log('❌ Unrecoverable errors:')
@@ -191,35 +253,41 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
     break
   }
 
-  console.log(`   Found ${missing.size} missing modules, creating stubs...`)
+  console.log(`   Found ${missing.length} missing modules, creating stubs...`)
 
   // Create stubs
   let stubCount = 0
-  for (const mod of missing) {
-    // Resolve relative path from the file that imports it — but since we
-    // don't have that info easily, create stubs at multiple likely locations
+  for (const { mod, importer } of missing) {
+    const baseTarget = importer ? resolve(dirname(importer), mod) : null
+    const targets = baseTarget ? [baseTarget] : []
     const cleanMod = mod.replace(/^\.\//, '')
+    const normalizedMod = cleanMod.replace(/^(\.\.\/)+/, '')
+    targets.push(join(BUILD, 'src', normalizedMod))
 
     // Text assets → empty file
-    if (/\.(txt|md|json)$/.test(cleanMod)) {
-      const p = join(BUILD, 'src', cleanMod)
-      await mkdir(dirname(p), { recursive: true }).catch(() => {})
-      if (!await exists(p)) {
-        await writeFile(p, cleanMod.endsWith('.json') ? '{}' : '', 'utf8')
-        stubCount++
+    if (/\.(txt|md|json)$/.test(normalizedMod)) {
+      for (const p of targets) {
+        await mkdir(dirname(p), { recursive: true }).catch(() => {})
+        if (!await exists(p)) {
+          await writeFile(p, normalizedMod.endsWith('.json') ? '{}' : '', 'utf8')
+          stubCount++
+        }
       }
       continue
     }
 
     // JS/TS modules → export empty
-    if (/\.[tj]sx?$/.test(cleanMod)) {
-      for (const base of [join(BUILD, 'src'), join(BUILD, 'src', 'src')]) {
-        const p = join(base, cleanMod)
+    if (/\.[tj]sx?$/.test(normalizedMod)) {
+      for (const p of targets) {
         await mkdir(dirname(p), { recursive: true }).catch(() => {})
         if (!await exists(p)) {
-          const name = cleanMod.split('/').pop().replace(/\.[tj]sx?$/, '')
+          const name = normalizedMod.split('/').pop().replace(/\.[tj]sx?$/, '')
           const safeName = name.replace(/[^a-zA-Z0-9_$]/g, '_') || 'stub'
-          await writeFile(p, `// Auto-generated stub\nexport default function ${safeName}() {}\nexport const ${safeName} = () => {}\n`, 'utf8')
+          await writeFile(
+            p,
+            `// Auto-generated stub\nconst ${safeName}Stub = () => {}\nexport default ${safeName}Stub\nexport { ${safeName}Stub as ${safeName} }\n`,
+            'utf8',
+          )
           stubCount++
         }
       }
