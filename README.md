@@ -285,9 +285,15 @@ npm install
 # 2. Create .env file with your API key
 echo "ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxx" > .env
 
-# 3. Run Claude Code with env-var mode
-node cli.js --use-env
+# 3a. Run the pre-built CLI directly (recommended):
+node dist/cli.js --use-env
+
+# 3b. Or build from source first (if you modified src/):
+node scripts/build.mjs
+node dist/cli.js --use-env
 ```
+
+> **Note**: The `--use-env` flag requires our patches in `src/main.tsx` to be compiled into the bundle. If using the pre-built `dist/cli.js`, rebuild after modifying any source files.
 
 ### Environment Variables
 
