@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { createWriteStream, readFileSync, writeFileSync } from 'node:fs';
+import { openSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -119,26 +119,27 @@ async function startBackground(command: string[], cwd: string): Promise<Backgrou
     status: 'running',
     logPath: logPath(id),
   };
-  const output = createWriteStream(session.logPath, { flags: 'a' });
-  await new Promise<void>((resolve, reject) => {
-    output.once('open', () => resolve());
-    output.once('error', reject);
-  });
+  // Pass an inherited file descriptor to the child. Closing a stream object
+  // immediately after spawn can close the child's redirected handle on Windows.
+  const outputFd = openSync(session.logPath, 'a');
   // Publish the record before spawning so even a fast-path child can update
   // its terminal status from the exit handler.
   await save(session);
-  const child = spawn(process.execPath, [process.argv[1], ...command], {
+  const cliEntry = process.argv[1] || join(process.cwd(), 'dist', 'cli.js');
+  const child = spawn(process.execPath, [cliEntry, ...command], {
     cwd: session.cwd,
     detached: process.platform !== 'win32',
     env: { ...process.env, CLAUDE_CODE_BACKGROUND_SESSION: id },
-    stdio: ['ignore', output, output],
+    stdio: ['ignore', outputFd, outputFd],
   });
+  child.on('error', (error) => {
+    try { writeFileSync(session.logPath, `Background process error: ${error.message}\n`, { flag: 'a' }); } catch {}
+  });
+  // Keep the descriptor open in the launcher until it exits. On Windows,
+  // closing it immediately after spawn can invalidate the inherited handle.
   session.pid = child.pid ?? 0;
   await save(session);
   child.unref();
-  // spawn() duplicates this descriptor for the child, so closing our copy lets
-  // the launcher return immediately while the detached child keeps its log.
-  output.end();
   return session;
 }
 

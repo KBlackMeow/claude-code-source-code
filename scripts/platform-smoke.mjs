@@ -3,8 +3,9 @@ import { spawnSync } from 'node:child_process'
 import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 const cli = join(root, 'dist', 'cli.js')
 const run = args => spawnSync(process.execPath, [cli, ...args], {
   cwd: root,

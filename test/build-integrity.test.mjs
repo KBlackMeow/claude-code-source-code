@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 
 async function sourceFingerprint(dir) {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -45,7 +46,7 @@ test('type checking includes stubs without violating rootDir', async () => {
 })
 
 test('the built CLI loads with the real sandbox runtime', () => {
-  const build = spawnSync('npm', ['run', 'build'], {
+  const build = spawnSync(process.execPath, ['scripts/build.mjs'], {
     cwd: root,
     encoding: 'utf8',
   })

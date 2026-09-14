@@ -154,8 +154,8 @@ await mkdir(OUT_DIR, { recursive: true })
 await writeFile(join(OUT_DIR, 'package.json'), JSON.stringify({ type: 'commonjs' }, null, 2), 'utf8')
 const OUT_FILE = join(OUT_DIR, 'cli.js')
 
-// Run up to 5 rounds of: esbuild → collect missing → create stubs → retry
-const MAX_ROUNDS = 5
+// Run up to 20 rounds of: esbuild → collect missing → create stubs → retry
+const MAX_ROUNDS = 20
 let succeeded = false
 const generatedStubs = []
 
