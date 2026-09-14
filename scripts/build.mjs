@@ -45,7 +45,7 @@ async function* walk(dir) {
 async function exists(p) { try { await stat(p); return true } catch { return false } }
 
 async function ensureEsbuild() {
-  try { execFileSync(process.execPath, [esbuildBin, '--version'], { stdio: 'pipe' }) }
+  try { execFileSync(esbuildBin, ['--version'], { stdio: 'pipe' }) }
   catch {
     console.log('📦 Installing esbuild...')
     throw new Error('esbuild is unavailable. Run "npm install" from the project root, then retry.')
@@ -164,7 +164,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
 
   let esbuildOutput = ''
   try {
-    esbuildOutput = execFileSync(process.execPath, [esbuildBin,
+    esbuildOutput = execFileSync(esbuildBin, [
       ENTRY,
       '--bundle',
       '--platform=node',
