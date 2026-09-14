@@ -234,8 +234,9 @@ export function getAnthropicApiKeyWithSource(
 } {
   // If use-env is set, strictly use ANTHROPIC_API_KEY from .env (already in process.env)
   if (isEnvTruthy(process.env.CLAUDE_CODE_USE_ENV_ONLY)) {
-    if (process.env.ANTHROPIC_API_KEY) {
-      return { key: process.env.ANTHROPIC_API_KEY, source: 'ANTHROPIC_API_KEY' }
+    const envKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY
+    if (envKey) {
+      return { key: envKey, source: 'ANTHROPIC_API_KEY' }
     }
     return { key: null, source: 'none' }
   }
@@ -244,8 +245,9 @@ export function getAnthropicApiKeyWithSource(
   // the --settings flag. Never touches keychain, config file, or approval
   // lists. 3P (Bedrock/Vertex/Foundry) uses provider creds, not this path.
   if (isBareMode()) {
-    if (process.env.ANTHROPIC_API_KEY) {
-      return { key: process.env.ANTHROPIC_API_KEY, source: 'ANTHROPIC_API_KEY' }
+    const envKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY
+    if (envKey) {
+      return { key: envKey, source: 'ANTHROPIC_API_KEY' }
     }
     if (getConfiguredApiKeyHelper()) {
       return {
@@ -262,7 +264,7 @@ export function getAnthropicApiKeyWithSource(
   // https://anthropic.slack.com/archives/C08428WSLKV/p1747331773214779
   const apiKeyEnv = isRunningOnHomespace()
     ? undefined
-    : process.env.ANTHROPIC_API_KEY
+    : process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY
 
   // Always check for direct environment variable when the user ran claude --print.
   // This is useful for CI, etc.

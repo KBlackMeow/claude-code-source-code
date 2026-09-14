@@ -70,6 +70,7 @@ function getBridgeBaseUrl(): string {
   return (
     getBridgeBaseUrlOverride() ??
     process.env.ANTHROPIC_BASE_URL ??
+    process.env.OPENAI_BASE_URL ??
     getOauthConfig().BASE_API_URL
   )
 }

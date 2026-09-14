@@ -31,7 +31,7 @@ import {
 } from '../utils/effort.js'
 import {
   getClaudeConfigHomeDir,
-  isBareMode,
+  isCustomizationDisabled,
   isEnvTruthy,
 } from '../utils/envUtils.js'
 import { isENOENT, isFsInaccessible } from '../utils/errors.js'
@@ -655,7 +655,7 @@ export const getSkillDirCommands = memoize(
     // commands-dir). Load ONLY explicit --add-dir paths. Bundled skills
     // register separately. skillsLocked still applies — --bare is not a
     // policy bypass.
-    if (isBareMode()) {
+    if (isCustomizationDisabled()) {
       if (additionalDirs.length === 0 || !projectSettingsEnabled) {
         logForDebugging(
           `[bare] Skipping skill dir discovery (${additionalDirs.length === 0 ? 'no --add-dir' : 'projectSettings disabled or skillsLocked'})`,

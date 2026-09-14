@@ -18,16 +18,19 @@
  * Usage:       node scripts/build.mjs
  */
 
-import { readdir, readFile, writeFile, mkdir, cp, rm, stat } from 'node:fs/promises'
-import { join, dirname, resolve } from 'node:path'
-import { execSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { readdir, readFile, writeFile, mkdir, cp, rm, stat, chmod } from 'node:fs/promises'
+import { join, dirname, relative, resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 const VERSION = '2.1.88'
 const BUILD = join(ROOT, 'build-src')
 const ENTRY = join(BUILD, 'entry.ts')
+const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+const require = createRequire(import.meta.url)
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -42,10 +45,11 @@ async function* walk(dir) {
 async function exists(p) { try { await stat(p); return true } catch { return false } }
 
 async function ensureEsbuild() {
-  try { execSync('npx esbuild --version', { stdio: 'pipe' }) }
+  try { execFileSync(npx, ['esbuild', '--version'], { stdio: 'pipe' }) }
   catch {
     console.log('📦 Installing esbuild...')
-    execSync('npm install --save-dev esbuild', { cwd: ROOT, stdio: 'inherit' })
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+    execFileSync(npm, ['install', '--save-dev', 'esbuild'], { cwd: ROOT, stdio: 'inherit' })
   }
 }
 
@@ -77,6 +81,11 @@ const MACROS = {
   'MACRO.PACKAGE_URL': `'@anthropic-ai/claude-code'`,
   'MACRO.VERSION_CHANGELOG': `''`,
 }
+const ENABLED_FEATURES = new Set([
+  // Re-enabled features have dedicated offline integration coverage.
+  'TRANSCRIPT_CLASSIFIER',
+  'BG_SESSIONS',
+])
 
 for await (const file of walk(join(BUILD, 'src'))) {
   if (!file.match(/\.[tj]sx?$/)) continue
@@ -84,9 +93,11 @@ for await (const file of walk(join(BUILD, 'src'))) {
   let src = await readFile(file, 'utf8')
   let changed = false
 
-  // 2a. feature('X') → false
+  // 2a. Resolve compile-time feature flags in the isolated build copy.
   if (/\bfeature\s*\(\s*['"][A-Z_]+['"]\s*\)/.test(src)) {
-    src = src.replace(/\bfeature\s*\(\s*['"][A-Z_]+['"]\s*\)/g, 'false')
+    src = src.replace(/\bfeature\s*\(\s*['"]([A-Z_]+)['"]\s*\)/g, (_match, flag) =>
+      ENABLED_FEATURES.has(flag) ? 'true' : 'false',
+    )
     changed = true
   }
 
@@ -147,24 +158,24 @@ const OUT_FILE = join(OUT_DIR, 'cli.js')
 // Run up to 5 rounds of: esbuild → collect missing → create stubs → retry
 const MAX_ROUNDS = 5
 let succeeded = false
+const generatedStubs = []
 
 for (let round = 1; round <= MAX_ROUNDS; round++) {
   console.log(`\n🔨 Phase 4 round ${round}/${MAX_ROUNDS}: Bundling...`)
 
   let esbuildOutput = ''
   try {
-    esbuildOutput = execSync([
-      'npx esbuild',
-      `"${ENTRY}"`,
+    esbuildOutput = execFileSync(npx, ['esbuild',
+      ENTRY,
       '--bundle',
       '--platform=node',
-      '--target=node18',
+      '--target=node20',
       '--format=cjs',
-      `--outfile="${OUT_FILE}"`,
-      `--banner:js=$'#!/usr/bin/env node\\n// Claude Code v${VERSION} (built from source)\\n// Copyright (c) Anthropic PBC. All rights reserved.\\n'`,
+      `--define:import.meta.url=${JSON.stringify(pathToFileURL(OUT_FILE).href)}`,
+      `--outfile=${OUT_FILE}`,
+      `--banner:js=#!/usr/bin/env node\n// Claude Code v${VERSION} (built from source)\n// Copyright (c) Anthropic PBC. All rights reserved.\n`,
       `--tsconfig=${join(ROOT, 'tsconfig.json')}`,
       `--alias:src=${join(BUILD, 'src')}`,
-      `--alias:@anthropic-ai/sandbox-runtime=${join(ROOT, 'stubs', 'sandbox-runtime.ts')}`,
       `--alias:@anthropic-ai/bedrock-sdk=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
       `--alias:@anthropic-ai/foundry-sdk=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
       `--alias:@anthropic-ai/vertex-sdk=${join(ROOT, 'stubs', 'generic-stub.ts')}`,
@@ -182,10 +193,9 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
       '--log-level=error',
       '--log-limit=0',
       '--sourcemap',
-    ].join(' '), {
+    ], {
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
     }).stderr?.toString() || ''
     succeeded = true
     break
@@ -241,6 +251,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
         const exports = [...exportNames].sort().map(name => `export const ${name} = 0`).join('\n')
         const content = `// Auto-generated stub\nconst ${safeBase}Stub = 0\nexport default ${safeBase}Stub\n${exports}\n`
         await writeFile(target, content, 'utf8')
+        generatedStubs.push(relative(ROOT, target))
       }
       console.log(`   Fixed ${exportFixes.size} modules with missing exports`)
       continue
@@ -288,6 +299,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
             `// Auto-generated stub\nconst ${safeName}Stub = () => {}\nexport default ${safeName}Stub\nexport { ${safeName}Stub as ${safeName} }\n`,
             'utf8',
           )
+          generatedStubs.push(relative(ROOT, p))
           stubCount++
         }
       }
@@ -297,9 +309,53 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
 }
 
 if (succeeded) {
+  // The source build has no Bun-embedded ripgrep. Ship the npm package's
+  // platform binary beside the CLI so startup and search do not depend on PATH.
+  let sourceRgPath
+  try {
+    sourceRgPath = require('@vscode/ripgrep').rgPath
+  } catch (error) {
+    throw new Error('ripgrep package is unavailable; run npm install before building', { cause: error })
+  }
+  if (!sourceRgPath || !await exists(sourceRgPath)) {
+    throw new Error(`ripgrep binary is unavailable for ${process.platform}/${process.arch}`)
+  }
+  const rgFileName = process.platform === 'win32' ? 'rg.exe' : 'rg'
+  const rgRelativePath = join('vendor', 'ripgrep', `${process.arch}-${process.platform}`, rgFileName)
+  const bundledRgPath = join(OUT_DIR, rgRelativePath)
+  await mkdir(dirname(bundledRgPath), { recursive: true })
+  await cp(sourceRgPath, bundledRgPath)
+  if (process.platform !== 'win32') await chmod(bundledRgPath, 0o755)
+  execFileSync(bundledRgPath, ['--version'], { stdio: 'pipe' })
+
   const size = (await stat(OUT_FILE)).size
+  const manifest = {
+    version: VERSION,
+    generatedAt: new Date().toISOString(),
+    enabledFeatures: [...ENABLED_FEATURES].sort(),
+    runtimeDependencies: {
+      sandbox: '@anthropic-ai/sandbox-runtime',
+      sandboxStubbed: false,
+      ripgrep: '@vscode/ripgrep',
+      ripgrepBinary: rgRelativePath,
+    },
+    buildAliases: {
+      '@anthropic-ai/bedrock-sdk': 'stubs/generic-stub.ts',
+      '@anthropic-ai/foundry-sdk': 'stubs/generic-stub.ts',
+      '@anthropic-ai/vertex-sdk': 'stubs/generic-stub.ts',
+      '@anthropic-ai/mcpb': 'stubs/generic-stub.ts',
+      '@ant/claude-for-chrome-mcp': 'stubs/generic-stub.ts',
+    },
+    generatedStubs: [...new Set(generatedStubs)].sort(),
+  }
+  await writeFile(
+    join(OUT_DIR, 'build-manifest.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    'utf8',
+  )
   console.log(`\n✅ Build succeeded: ${OUT_FILE}`)
   console.log(`   Size: ${(size / 1024 / 1024).toFixed(1)}MB`)
+  console.log(`   Build manifest: ${join(OUT_DIR, 'build-manifest.json')}`)
   console.log(`\n   Usage:  node ${OUT_FILE} --version`)
   console.log(`           node ${OUT_FILE} -p "Hello"`)
 } else {

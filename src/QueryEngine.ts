@@ -45,7 +45,7 @@ import { createAbortController } from './utils/abortController.js'
 import type { AttributionState } from './utils/commitAttribution.js'
 import { getGlobalConfig } from './utils/config.js'
 import { getCwd } from './utils/cwd.js'
-import { isBareMode, isEnvTruthy } from './utils/envUtils.js'
+import { isBareMode, isCustomizationDisabled, isEnvTruthy } from './utils/envUtils.js'
 import { getFastModeState } from './utils/fastMode.js'
 import {
   type FileHistoryState,
@@ -360,7 +360,9 @@ export class QueryEngine {
         customSystemPrompt,
         appendSystemPrompt,
         agentDefinitions: { activeAgents: agents, allAgents: [] },
-        theme: resolveThemeSetting(getGlobalConfig().theme),
+        theme: resolveThemeSetting(
+          isCustomizationDisabled() ? undefined : getGlobalConfig().theme,
+        ),
         maxBudgetUsd,
       },
       getAppState,
@@ -507,7 +509,9 @@ export class QueryEngine {
         isNonInteractiveSession: true,
         customSystemPrompt,
         appendSystemPrompt,
-        theme: resolveThemeSetting(getGlobalConfig().theme),
+        theme: resolveThemeSetting(
+          isCustomizationDisabled() ? undefined : getGlobalConfig().theme,
+        ),
         agentDefinitions: { activeAgents: agents, allAgents: [] },
         maxBudgetUsd,
       },
@@ -675,6 +679,27 @@ export class QueryEngine {
     for await (const message of query({
       messages,
       systemPrompt,
+      getSystemPrompt:
+        isEnvTruthy(process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF)
+          ? async () => {
+              const refreshed = await fetchSystemPromptParts({
+                tools,
+                mainLoopModel: initialMainLoopModel,
+                additionalWorkingDirectories: Array.from(
+                  initialAppState.toolPermissionContext.additionalWorkingDirectories.keys(),
+                ),
+                mcpClients,
+                customSystemPrompt: customPrompt,
+              })
+              return asSystemPrompt([
+                ...(customPrompt !== undefined
+                  ? [customPrompt]
+                  : refreshed.defaultSystemPrompt),
+                ...(memoryMechanicsPrompt ? [memoryMechanicsPrompt] : []),
+                ...(appendSystemPrompt ? [appendSystemPrompt] : []),
+              ])
+            }
+          : undefined,
       userContext,
       systemContext,
       canUseTool: wrappedCanUseTool,

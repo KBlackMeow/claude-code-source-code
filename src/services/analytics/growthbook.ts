@@ -437,7 +437,7 @@ function isGrowthBookEnabled(): boolean {
  * is absent for direct-API users. Hostname only — no path/query/creds.
  */
 export function getApiBaseUrlHost(): string | undefined {
-  const baseUrl = process.env.ANTHROPIC_BASE_URL
+  const baseUrl = process.env.ANTHROPIC_BASE_URL || process.env.OPENAI_BASE_URL
   if (!baseUrl) return undefined
   try {
     const host = new URL(baseUrl).host

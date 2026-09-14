@@ -1,5 +1,6 @@
 import type { ChildProcess, ExecFileException } from 'child_process'
 import { execFile, spawn } from 'child_process'
+import { existsSync } from 'node:fs'
 import memoize from 'lodash-es/memoize.js'
 import { homedir } from 'os'
 import * as path from 'path'
@@ -61,7 +62,20 @@ const getRipgrepConfig = memoize((): RipgrepConfig => {
       ? path.resolve(rgRoot, `${process.arch}-win32`, 'rg.exe')
       : path.resolve(rgRoot, `${process.arch}-${process.platform}`, 'rg')
 
-  return { mode: 'builtin', command, args: [] }
+  if (existsSync(command)) {
+    return { mode: 'builtin', command, args: [] }
+  }
+
+  // The Node source build does not ship Bun's embedded rg or the native
+  // binary copied beside official releases. Use the system installation when
+  // present instead of spawning a nonexistent dist/vendor path mid-session.
+  const { cmd: systemPath } = findExecutable('rg', [])
+  if (systemPath !== 'rg') {
+    return { mode: 'system', command: 'rg', args: [] }
+  }
+  throw new Error(
+    'ripgrep is unavailable: install rg on PATH or provide the platform binary in dist/vendor/ripgrep',
+  )
 })
 
 export function ripgrepCommand(): {

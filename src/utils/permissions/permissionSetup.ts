@@ -796,10 +796,8 @@ export function initialPermissionModeFromCLI({
   }
 
   if (!result) {
-    result = { mode: 'default', notification }
-  }
-
-  if (!result) {
+    // A fresh session starts in Manual mode. Other modes remain available
+    // through Shift+Tab or an explicit CLI/settings choice.
     result = { mode: 'default', notification }
   }
 
@@ -1088,10 +1086,16 @@ export async function verifyAutoModeGateAccess(
   // after GrowthBook initialization and is the authoritative source for
   // isAutoModeAvailable. The sync startup path uses stale cache; this
   // corrects it. Circuit breaker (enabled==='disabled') takes effect here.
-  const autoModeConfig = await getDynamicConfig_BLOCKS_ON_INIT<{
-    enabled?: AutoModeEnabledState
-    disableFastMode?: boolean
-  }>('tengu_auto_mode_config', {})
+  // GrowthBook rollout state belongs to Anthropic accounts and is absent for
+  // this source build. Keep the local setting as a kill switch, but make Auto
+  // visible in the interactive Shift+Tab carousel without requiring a CLI flag.
+  const externalSourceBuild = process.env.USER_TYPE !== 'ant'
+  const autoModeConfig = externalSourceBuild
+    ? { enabled: 'enabled' as const }
+    : await getDynamicConfig_BLOCKS_ON_INIT<{
+        enabled?: AutoModeEnabledState
+        disableFastMode?: boolean
+      }>('tengu_auto_mode_config', {})
   const enabledState = parseAutoModeEnabledState(autoModeConfig?.enabled)
   const disabledBySettings = isAutoModeDisabledBySettings()
   // Treat settings-disable the same as GrowthBook 'disabled' for circuit-breaker
@@ -1310,7 +1314,9 @@ export function getAutoModeUnavailableReason(): AutoModeUnavailableReason | null
  */
 export type AutoModeEnabledState = 'enabled' | 'disabled' | 'opt-in'
 
-const AUTO_MODE_ENABLED_DEFAULT: AutoModeEnabledState = 'disabled'
+// The source build has no account-scoped rollout configuration. Auto is
+// available in interactive sessions; user settings remain a kill switch.
+const AUTO_MODE_ENABLED_DEFAULT: AutoModeEnabledState = 'enabled'
 
 function parseAutoModeEnabledState(value: unknown): AutoModeEnabledState {
   if (value === 'enabled' || value === 'disabled' || value === 'opt-in') {

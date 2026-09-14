@@ -1372,7 +1372,9 @@ async function* queryModel(
   logAPIPrefix(systemPrompt)
 
   const enablePromptCaching =
-    options.enablePromptCaching ?? getPromptCachingEnabled(options.model)
+    options.enablePromptCaching ??
+    (!isEnvTruthy(process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF) &&
+      getPromptCachingEnabled(options.model))
   const system = buildSystemPromptBlocks(systemPrompt, enablePromptCaching, {
     skipGlobalCacheForSystemPrompt: needsToolBasedCacheMarker,
     querySource: options.querySource,
@@ -1637,7 +1639,9 @@ async function* queryModel(
     })
 
     const enablePromptCaching =
-      options.enablePromptCaching ?? getPromptCachingEnabled(retryContext.model)
+      options.enablePromptCaching ??
+      (!isEnvTruthy(process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF) &&
+        getPromptCachingEnabled(retryContext.model))
 
     // Fast mode: header is latched session-stable (cache-safe), but
     // `speed='fast'` stays dynamic so cooldown still suppresses the actual

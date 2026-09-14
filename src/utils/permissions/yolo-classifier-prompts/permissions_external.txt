@@ -1,1 +1,24 @@
+<allow_rules>
+<user_allow_rules_to_replace>
+- Read, search, and inspect files in the current project.
+- Create or edit source files, tests, and documentation in the current project.
+- Run local formatting, build, lint, and test commands that do not publish or deploy.
+</user_allow_rules_to_replace>
+</allow_rules>
 
+<soft_deny_rules>
+<user_deny_rules_to_replace>
+- Delete or overwrite data outside the current project, or perform irreversible bulk deletion.
+- Exfiltrate secrets, credentials, private keys, tokens, or personal data.
+- Disable security controls, change system-wide configuration, or create persistence.
+- Install global software, publish packages, deploy services, make purchases, or send messages externally.
+- Download and execute remote code such as curl piped to a shell.
+</user_deny_rules_to_replace>
+</soft_deny_rules>
+
+<environment>
+<user_environment_to_replace>
+- The current working directory is the intended project boundary.
+- Ask before actions with effects outside that boundary.
+</user_environment_to_replace>
+</environment>

@@ -59,9 +59,10 @@ export const PermissionsSchema = lazySchema(() =>
       defaultMode: z
         .enum(
           feature('TRANSCRIPT_CLASSIFIER')
-            ? PERMISSION_MODES
-            : EXTERNAL_PERMISSION_MODES,
+            ? [...PERMISSION_MODES, 'manual']
+            : [...EXTERNAL_PERMISSION_MODES, 'manual'],
         )
+        .transform(mode => mode === 'manual' ? 'default' : mode)
         .optional()
         .describe('Default permission mode when Claude Code needs access'),
       disableBypassPermissionsMode: z

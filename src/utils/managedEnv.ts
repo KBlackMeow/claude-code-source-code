@@ -27,7 +27,9 @@ function withoutSSHTunnelVars(
   const {
     ANTHROPIC_UNIX_SOCKET: _1,
     ANTHROPIC_BASE_URL: _2,
+    OPENAI_BASE_URL: _2b,
     ANTHROPIC_API_KEY: _3,
+    OPENAI_API_KEY: _3b,
     ANTHROPIC_AUTH_TOKEN: _4,
     CLAUDE_CODE_OAUTH_TOKEN: _5,
     ...rest

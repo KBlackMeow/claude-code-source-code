@@ -9,7 +9,7 @@ import {
 } from '../argumentSubstitution.js'
 import { logForDebugging } from '../debug.js'
 import { EFFORT_LEVELS, parseEffortValue } from '../effort.js'
-import { isBareMode } from '../envUtils.js'
+import { isCustomizationDisabled } from '../envUtils.js'
 import { isENOENT } from '../errors.js'
 import {
   coerceDescriptionToString,
@@ -416,7 +416,7 @@ export const getPluginCommands = memoize(async (): Promise<Command[]> => {
   // works — getInlinePlugins() is set by main.tsx from --plugin-dir.
   // loadAllPluginsCacheOnly already short-circuits to inline-only when
   // inlinePlugins.length > 0.
-  if (isBareMode() && getInlinePlugins().length === 0) {
+  if (isCustomizationDisabled()) {
     return []
   }
   // Only load commands from enabled plugins
@@ -840,7 +840,7 @@ async function loadSkillsFromDirectory(
 export const getPluginSkills = memoize(async (): Promise<Command[]> => {
   // --bare: same gate as getPluginCommands above — honor explicit
   // --plugin-dir, skip marketplace auto-load.
-  if (isBareMode() && getInlinePlugins().length === 0) {
+  if (isCustomizationDisabled()) {
     return []
   }
   // Only load skills from enabled plugins

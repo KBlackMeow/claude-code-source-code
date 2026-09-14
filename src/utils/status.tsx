@@ -252,11 +252,11 @@ export function buildAPIProviderProperties(): Property[] {
     });
   }
   if (apiProvider === 'firstParty') {
-    const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL;
-    if (anthropicBaseUrl) {
+    const apiBaseUrl = process.env.ANTHROPIC_BASE_URL || process.env.OPENAI_BASE_URL;
+    if (apiBaseUrl) {
       properties.push({
-        label: 'Anthropic base URL',
-        value: anthropicBaseUrl
+        label: 'API base URL',
+        value: apiBaseUrl
       });
     }
   } else if (apiProvider === 'bedrock') {

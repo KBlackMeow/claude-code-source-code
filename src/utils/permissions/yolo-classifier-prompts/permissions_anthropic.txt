@@ -1,1 +1,3 @@
-
+<allow_rules><user_allow_rules_to_replace></user_allow_rules_to_replace></allow_rules>
+<soft_deny_rules><user_deny_rules_to_replace></user_deny_rules_to_replace></soft_deny_rules>
+<environment><user_environment_to_replace></user_environment_to_replace></environment>

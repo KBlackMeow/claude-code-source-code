@@ -18,9 +18,15 @@ export {
   type PermissionMode,
 }
 
-export const permissionModeSchema = lazySchema(() => z.enum(PERMISSION_MODES))
+export const permissionModeSchema = lazySchema(() =>
+  z.enum([...PERMISSION_MODES, 'manual']).transform(mode =>
+    mode === 'manual' ? 'default' : mode,
+  ),
+)
 export const externalPermissionModeSchema = lazySchema(() =>
-  z.enum(EXTERNAL_PERMISSION_MODES),
+  z.enum([...EXTERNAL_PERMISSION_MODES, 'manual']).transform(mode =>
+    mode === 'manual' ? 'default' : mode,
+  ),
 )
 
 type ModeColorKey =
@@ -43,9 +49,9 @@ const PERMISSION_MODE_CONFIG: Partial<
   Record<PermissionMode, PermissionModeConfig>
 > = {
   default: {
-    title: 'Default',
-    shortTitle: 'Default',
-    symbol: '',
+    title: 'Manual',
+    shortTitle: 'Manual',
+    symbol: PAUSE_ICON,
     color: 'text',
     external: 'default',
   },
@@ -115,6 +121,7 @@ export function toExternalPermissionMode(
 }
 
 export function permissionModeFromString(str: string): PermissionMode {
+  if (str === 'manual') return 'default'
   return (PERMISSION_MODES as readonly string[]).includes(str)
     ? (str as PermissionMode)
     : 'default'

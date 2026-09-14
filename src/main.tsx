@@ -119,7 +119,7 @@ import { setupClaudeInChrome, shouldAutoEnableClaudeInChrome, shouldEnableClaude
 import { getContextWindowForModel } from './utils/context.js';
 import { loadConversationForResume } from './utils/conversationRecovery.js';
 import { buildDeepLinkBanner } from './utils/deepLink/banner.js';
-import { hasNodeOption, isBareMode, isEnvTruthy, isInProtectedNamespace } from './utils/envUtils.js';
+import { hasNodeOption, isBareMode, isEnvTruthy, isInProtectedNamespace, isSafeMode } from './utils/envUtils.js';
 import { refreshExampleCommands } from './utils/exampleCommands.js';
 import type { FpsMetrics } from './utils/fpsTracker.js';
 import { getWorktreePaths } from './utils/getWorktreePaths.js';
@@ -128,7 +128,7 @@ import { getGhAuthStatus } from './utils/github/ghAuthStatus.js';
 import { safeParseJSON } from './utils/json.js';
 import { logError } from './utils/log.js';
 import { getModelDeprecationWarning } from './utils/model/deprecation.js';
-import { getDefaultMainLoopModel, getUserSpecifiedModelSetting, normalizeModelStringForAPI, parseUserSpecifiedModel } from './utils/model/model.js';
+import { getDefaultMainLoopModel, getMainLoopModel, getUserSpecifiedModelSetting, normalizeModelStringForAPI, parseUserSpecifiedModel } from './utils/model/model.js';
 import { ensureModelStringsInitialized } from './utils/model/modelStrings.js';
 import { PERMISSION_MODES } from './utils/permissions/PermissionMode.js';
 import { checkAndDisableBypassPermissions, getAutoModeEnabledStateIfCached, initializeToolPermissionContext, initialPermissionModeFromCLI, isDefaultPermissionModeAuto, parseToolListFromCLI, removeDangerousPermissions, stripDangerousPermissionsForAutoMode, verifyAutoModeGateAccess } from './utils/permissions/permissionSetup.js';
@@ -956,7 +956,7 @@ async function run(): Promise<CommanderCommand> {
     // builds the type as options are added. Narrow with a runtime guard;
     // the collect accumulator + [] default guarantee string[] in practice.
     const pluginDir = thisCommand.getOptionValue('pluginDir');
-    if (Array.isArray(pluginDir) && pluginDir.length > 0 && pluginDir.every(p => typeof p === 'string')) {
+    if (!isSafeMode() && Array.isArray(pluginDir) && pluginDir.length > 0 && pluginDir.every(p => typeof p === 'string')) {
       setInlinePlugins(pluginDir);
       clearPluginCache('preAction: --plugin-dir inline plugins');
     }
@@ -978,6 +978,27 @@ async function run(): Promise<CommanderCommand> {
     }
     profileCheckpoint('preAction_after_settings_sync');
   });
+  program
+    .option('--safe-mode', 'Start with project/user/plugin/workflow customizations disabled; authentication, built-in tools, permissions, and explicit CLI settings remain available.', () => true)
+    .option('--restricted', 'Restrict tools and configuration: command, code, and network tools are disabled by default; --tools may explicitly select tools, while --restricted still rejects permission bypass.', () => true)
+    .option('--sandbox', 'Require OS-level sandboxing for command execution in this session.', () => true)
+    .option('--no-sandbox', 'Disable OS-level sandboxing for command execution in this session.')
+    .addOption(new Option('--system-prompt-snapshot <on|off>', 'Reuse the recorded system prompt (on), or rebuild it for each request (off).').choices(['on', 'off']))
+    .addOption(
+      new Option(
+        '--autocompact <auto|tokens>',
+        'Auto-compact window size (auto, or 100k–1M tokens).',
+      ).argParser(value => {
+        if (value === 'auto') return value
+        const tokens = Number(value)
+        if (!Number.isInteger(tokens) || tokens < 100_000 || tokens > 1_000_000) {
+          throw new InvalidArgumentError(
+            '--autocompact must be auto or an integer from 100k to 1M tokens',
+          )
+        }
+        return tokens
+      }),
+    )
   program.name('claude').description(`Claude Code - starts an interactive session by default, use -p/--print for non-interactive output`).argument('[prompt]', 'Your prompt', String)
   // Subcommands inherit helpOption via commander's copyInheritedSettings —
   // setting it once here covers mcp, plugin, auth, and all other subcommands.
@@ -998,7 +1019,7 @@ async function run(): Promise<CommanderCommand> {
       throw new Error('--task-budget must be a positive integer');
     }
     return tokens;
-  }).hideHelp()).option('--replay-user-messages', 'Re-emit user messages from stdin back on stdout for acknowledgment (only works with --input-format=stream-json and --output-format=stream-json)', () => true).addOption(new Option('--enable-auth-status', 'Enable auth status messages in SDK mode').default(false).hideHelp()).option('--allowedTools, --allowed-tools <tools...>', 'Comma or space-separated list of tool names to allow (e.g. "Bash(git:*) Edit")').option('--tools <tools...>', 'Specify the list of available tools from the built-in set. Use "" to disable all tools, "default" to use all tools, or specify tool names (e.g. "Bash,Edit,Read").').option('--disallowedTools, --disallowed-tools <tools...>', 'Comma or space-separated list of tool names to deny (e.g. "Bash(git:*) Edit")').option('--mcp-config <configs...>', 'Load MCP servers from JSON files or strings (space-separated)').addOption(new Option('--permission-prompt-tool <tool>', 'MCP tool to use for permission prompts (only works with --print)').argParser(String).hideHelp()).addOption(new Option('--system-prompt <prompt>', 'System prompt to use for the session').argParser(String)).addOption(new Option('--system-prompt-file <file>', 'Read system prompt from a file').argParser(String).hideHelp()).addOption(new Option('--append-system-prompt <prompt>', 'Append a system prompt to the default system prompt').argParser(String)).addOption(new Option('--append-system-prompt-file <file>', 'Read system prompt from a file and append to the default system prompt').argParser(String).hideHelp()).addOption(new Option('--permission-mode <mode>', 'Permission mode to use for the session').argParser(String).choices(PERMISSION_MODES)).option('-c, --continue', 'Continue the most recent conversation in the current directory', () => true).option('-r, --resume [value]', 'Resume a conversation by session ID, or open interactive picker with optional search term', value => value || true).option('--fork-session', 'When resuming, create a new session ID instead of reusing the original (use with --resume or --continue)', () => true).addOption(new Option('--prefill <text>', 'Pre-fill the prompt input with text without submitting it').hideHelp()).addOption(new Option('--deep-link-origin', 'Signal that this session was launched from a deep link').hideHelp()).addOption(new Option('--deep-link-repo <slug>', 'Repo slug the deep link ?repo= parameter resolved to the current cwd').hideHelp()).addOption(new Option('--deep-link-last-fetch <ms>', 'FETCH_HEAD mtime in epoch ms, precomputed by the deep link trampoline').argParser(v => {
+  }).hideHelp()).option('--replay-user-messages', 'Re-emit user messages from stdin back on stdout for acknowledgment (only works with --input-format=stream-json and --output-format=stream-json)', () => true).addOption(new Option('--enable-auth-status', 'Enable auth status messages in SDK mode').default(false).hideHelp()).option('--allowedTools, --allowed-tools <tools...>', 'Comma or space-separated list of tool names to allow (e.g. "Bash(git:*) Edit")').option('--tools <tools...>', 'Specify the list of available tools from the built-in set. Use "" to disable all tools, "default" to use all tools, or specify tool names (e.g. "Bash,Edit,Read").').option('--disallowedTools, --disallowed-tools <tools...>', 'Comma or space-separated list of tool names to deny (e.g. "Bash(git:*) Edit")').option('--mcp-config <configs...>', 'Load MCP servers from JSON files or strings (space-separated)').addOption(new Option('--permission-prompt-tool <tool>', 'MCP tool to use for permission prompts (only works with --print)').argParser(String).hideHelp()).addOption(new Option('--system-prompt <prompt>', 'System prompt to use for the session').argParser(String)).addOption(new Option('--system-prompt-file <file>', 'Read system prompt from a file').argParser(String).hideHelp()).addOption(new Option('--append-system-prompt <prompt>', 'Append a system prompt to the default system prompt').argParser(String)).addOption(new Option('--append-system-prompt-file <file>', 'Read system prompt from a file and append to the default system prompt').argParser(String).hideHelp()).addOption(new Option('--permission-mode <mode>', 'Permission mode to use for the session').argParser(String).choices([...PERMISSION_MODES, 'manual'])).option('-c, --continue', 'Continue the most recent conversation in the current directory', () => true).option('-r, --resume [value]', 'Resume a conversation by session ID, or open interactive picker with optional search term', value => value || true).option('--fork-session', 'When resuming, create a new session ID instead of reusing the original (use with --resume or --continue)', () => true).addOption(new Option('--prefill <text>', 'Pre-fill the prompt input with text without submitting it').hideHelp()).addOption(new Option('--deep-link-origin', 'Signal that this session was launched from a deep link').hideHelp()).addOption(new Option('--deep-link-repo <slug>', 'Repo slug the deep link ?repo= parameter resolved to the current cwd').hideHelp()).addOption(new Option('--deep-link-last-fetch <ms>', 'FETCH_HEAD mtime in epoch ms, precomputed by the deep link trampoline').argParser(v => {
     const n = Number(v);
     return Number.isFinite(n) ? n : undefined;
   }).hideHelp()).option('--from-pr [value]', 'Resume a session linked to a PR by PR number/URL, or open interactive picker with optional search term', value => value || true).option('--no-session-persistence', 'Disable session persistence - sessions will not be saved to disk and cannot be resumed (only works with --print)').addOption(new Option('--resume-session-at <message id>', 'When resuming, only messages up to and including the assistant message with <message.id> (use with --resume in print mode)').argParser(String).hideHelp()).addOption(new Option('--rewind-files <user-message-id>', 'Restore files to state at the specified user message and exit (requires --resume)').hideHelp())
@@ -1026,6 +1047,75 @@ async function run(): Promise<CommanderCommand> {
       bare?: boolean;
     }).bare) {
       process.env.CLAUDE_CODE_SIMPLE = '1';
+    }
+
+    const modeOptions = options as {
+      safeMode?: boolean
+      restricted?: boolean
+      dangerouslySkipPermissions?: boolean
+      tools?: string[]
+      mcpConfig?: string[]
+      strictMcpConfig?: boolean
+      disableSlashCommands?: boolean
+      autocompact?: 'auto' | number
+    }
+    if (modeOptions.safeMode) {
+      process.env.CLAUDE_CODE_SAFE_MODE = '1'
+      // Safe mode never loads discovered MCP servers or slash-command files.
+      // Explicit settings remain available for normal auth and model selection.
+      modeOptions.mcpConfig = []
+      modeOptions.strictMcpConfig = true
+      modeOptions.disableSlashCommands = true
+    }
+    if (process.argv.includes('--sandbox')) {
+      process.env.CLAUDE_CODE_SANDBOX_OVERRIDE = '1'
+    } else if (process.argv.includes('--no-sandbox')) {
+      process.env.CLAUDE_CODE_SANDBOX_OVERRIDE = '0'
+      if (!(options as { print?: boolean }).print) {
+        process.stderr.write(
+          '\n⚠ Sandbox explicitly disabled (--no-sandbox). Commands run with the current user permissions; filesystem and network isolation are not active.\n\n',
+        )
+      }
+    }
+    if (modeOptions.restricted) {
+      if (modeOptions.dangerouslySkipPermissions) {
+        throw new Error(
+          '--restricted cannot be combined with --dangerously-skip-permissions',
+        )
+      }
+      // A caller can explicitly opt a tool back in with --tools. Otherwise
+      // expose only local file and planning tools; command/code/network tools
+      // are removed by initializeToolPermissionContext's base-tool filter.
+      if (!modeOptions.tools || modeOptions.tools.length === 0) {
+        modeOptions.tools = [
+          'Read',
+          'Glob',
+          'Grep',
+          'Edit',
+          'Write',
+          'NotebookEdit',
+          'TodoWrite',
+          'AskUserQuestion',
+          'EnterPlanMode',
+          'ExitPlanMode',
+          'TaskStop',
+        ]
+      }
+      modeOptions.mcpConfig = []
+      modeOptions.strictMcpConfig = true
+      modeOptions.disableSlashCommands = true
+    }
+    if (modeOptions.autocompact === 'auto') {
+      delete process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW
+    } else if (typeof modeOptions.autocompact === 'number') {
+      process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(
+        modeOptions.autocompact,
+      )
+    }
+    if ((options as { systemPromptSnapshot?: 'on' | 'off' }).systemPromptSnapshot === 'off') {
+      process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF = '1'
+    } else if ((options as { systemPromptSnapshot?: 'on' | 'off' }).systemPromptSnapshot === 'on') {
+      delete process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF
     }
 
     // Ignore "code" as a prompt - treat it the same as no prompt
@@ -1798,7 +1888,7 @@ async function run(): Promise<CommanderCommand> {
     // --bare / SIMPLE: skip claude.ai proxy servers (datadog, Gmail,
     // Slack, BigQuery, PubMed — 6-14s each to connect). Scripted calls
     // that need MCP pass --mcp-config explicitly.
-    !isBareMode() ? fetchClaudeAIMcpConfigsIfEligible().then(configs => {
+    !isBareMode() && !isSafeMode() ? fetchClaudeAIMcpConfigsIfEligible().then(configs => {
       const {
         allowed,
         blocked
@@ -1819,7 +1909,7 @@ async function run(): Promise<CommanderCommand> {
     // --bare skips auto-discovered MCP (.mcp.json, user settings, plugins) —
     // only explicit --mcp-config works. dynamicMcpConfig is spread onto
     // allMcpConfigs downstream so it survives this skip.
-    const mcpConfigPromise = (strictMcpConfig || isBareMode() ? Promise.resolve({
+    const mcpConfigPromise = (strictMcpConfig || isBareMode() || isSafeMode() ? Promise.resolve({
       servers: {} as Record<string, ScopedMcpServerConfig>
     }) : getClaudeCodeMcpConfigs(dynamicMcpConfig)).then(result => {
       mcpConfigResolvedMs = Date.now() - mcpConfigStart;
@@ -2022,7 +2112,7 @@ async function run(): Promise<CommanderCommand> {
     //  - explicit model via --model or ANTHROPIC_MODEL (both feed alias resolution)
     //  - no env override (which short-circuits _CACHED_MAY_BE_STALE before disk)
     //  - flag absent from disk (== null also catches pre-#22279 poisoned null)
-    const explicitModel = options.model || process.env.ANTHROPIC_MODEL;
+    const explicitModel = options.model || process.env.ANTHROPIC_MODEL || process.env.OPENAI_MODEL;
     if ("external" === 'ant' && explicitModel && explicitModel !== 'default' && !hasGrowthBookEnvOverride('tengu_ant_model_override') && getGlobalConfig().cachedGrowthBookFeatures?.['tengu_ant_model_override'] == null) {
       await initializeGrowthBook();
     }
@@ -2123,8 +2213,12 @@ async function run(): Promise<CommanderCommand> {
     }
     setMainLoopModelOverride(effectiveModel);
 
-    // Compute resolved model for hooks (use user-specified model at launch)
-    setInitialMainLoopModel(getUserSpecifiedModelSetting() || null);
+    // Keep the interactive AppState aligned with the request model. In
+    // particular, CLAUDE_CODE_MODEL_OVERRIDE is consulted by getMainLoopModel
+    // but intentionally not by getUserSpecifiedModelSetting(). Using the
+    // latter here made the UI and subsequent tool turns silently fall back to
+    // the built-in Sonnet default.
+    setInitialMainLoopModel(getMainLoopModel());
     const initialMainLoopModel = getInitialMainLoopModel();
     const resolvedInitialModel = parseUserSpecifiedModel(initialMainLoopModel ?? getDefaultMainLoopModel());
     let advisorModel: string | undefined;
@@ -2876,7 +2970,7 @@ async function run(): Promise<CommanderCommand> {
     // Log model config at startup
     logEvent('tengu_startup_manual_model_config', {
       cli_flag: options.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      env_var: process.env.ANTHROPIC_MODEL as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      env_var: (process.env.ANTHROPIC_MODEL || process.env.OPENAI_MODEL) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       settings_file: (getInitialSettings() || {}).model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       subscriptionType: getSubscriptionType() as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       agent: agentSetting as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS

@@ -42,6 +42,7 @@ import {
   parseClassifierResponse,
 } from './classifierShared.js'
 import { getClaudeTempDir } from './filesystem.js'
+import { selectAutoClassifierTransport } from './classifierTransport.js'
 
 // Dead code elimination: conditional imports for auto mode classifier prompts.
 // At build time, the bundler inlines .txt files as string literals. At test
@@ -829,6 +830,7 @@ async function classifyYoloActionXml(
           return {
             shouldBlock: true,
             reason: 'Classifier stage 1 unparseable - blocking for safety',
+            unavailable: true,
             model,
             usage: stage1Usage,
             durationMs: stage1DurationMs,
@@ -900,6 +902,7 @@ async function classifyYoloActionXml(
       return {
         shouldBlock: true,
         reason: 'Classifier stage 2 unparseable - blocking for safety',
+        unavailable: true,
         model,
         usage: totalUsage,
         durationMs: totalDurationMs,
@@ -1203,6 +1206,7 @@ export async function classifyYoloAction(
       return {
         shouldBlock: true,
         reason: 'Classifier returned no tool use block - blocking for safety',
+        unavailable: true,
         model,
         usage,
         durationMs,
@@ -1227,6 +1231,7 @@ export async function classifyYoloAction(
       return {
         shouldBlock: true,
         reason: 'Invalid classifier response - blocking for safety',
+        unavailable: true,
         model,
         usage,
         durationMs,
@@ -1365,7 +1370,10 @@ function resolveTwoStageClassifier():
     'tengu_auto_mode_config',
     {} as AutoModeConfig,
   )
-  return config?.twoStageClassifier
+  return selectAutoClassifierTransport(
+    process.env.USER_TYPE,
+    config?.twoStageClassifier,
+  )
 }
 
 /**

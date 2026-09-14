@@ -11,12 +11,19 @@ import {
   mkdir,
   readdir,
   readFile,
+  rename,
   stat,
   unlink,
   writeFile,
 } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
 import { basename, dirname, join } from 'path'
+
+async function writeJsonAtomically(path: string, value: unknown): Promise<void> {
+  const temporary = `${path}.${process.pid}.tmp`
+  await writeFile(temporary, JSON.stringify(value), { encoding: 'utf8', mode: 0o600 })
+  await rename(temporary, path)
+}
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -286,7 +293,7 @@ export async function writeAgentMetadata(
 ): Promise<void> {
   const path = getAgentMetadataPath(agentId)
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, JSON.stringify(metadata))
+  await writeJsonAtomically(path, metadata)
 }
 
 export async function readAgentMetadata(
@@ -340,7 +347,7 @@ export async function writeRemoteAgentMetadata(
 ): Promise<void> {
   const path = getRemoteAgentMetadataPath(taskId)
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, JSON.stringify(metadata))
+  await writeJsonAtomically(path, metadata)
 }
 
 export async function readRemoteAgentMetadata(

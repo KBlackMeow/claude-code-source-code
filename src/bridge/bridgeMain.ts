@@ -2023,7 +2023,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
   if (permissionMode !== undefined) {
     const { PERMISSION_MODES } = await import('../types/permissions.js')
     const valid: readonly string[] = PERMISSION_MODES
-    if (!valid.includes(permissionMode)) {
+    if (permissionMode !== 'manual' && !valid.includes(permissionMode)) {
       // biome-ignore lint/suspicious/noConsole: intentional error output
       console.error(
         `Error: Invalid permission mode '${permissionMode}'. Valid modes: ${valid.join(', ')}`,

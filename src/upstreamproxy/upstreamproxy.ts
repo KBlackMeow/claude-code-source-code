@@ -118,6 +118,7 @@ export async function initUpstreamProxy(opts?: {
   const baseUrl =
     opts?.ccrBaseUrl ??
     process.env.ANTHROPIC_BASE_URL ??
+    process.env.OPENAI_BASE_URL ??
     'https://api.anthropic.com'
   const caBundlePath =
     opts?.caBundlePath ?? join(homedir(), '.ccr', 'ca-bundle.crt')

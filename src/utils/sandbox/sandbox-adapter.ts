@@ -457,6 +457,9 @@ const checkDependencies = memoize((): SandboxDependencyCheck => {
 })
 
 function getSandboxEnabledSetting(): boolean {
+  // CLI flags take precedence over settings for the current session.
+  if (process.env.CLAUDE_CODE_SANDBOX_OVERRIDE === '1') return true
+  if (process.env.CLAUDE_CODE_SANDBOX_OVERRIDE === '0') return false
   try {
     const settings = getSettings_DEPRECATED()
     return settings?.sandbox?.enabled ?? false
@@ -472,11 +475,15 @@ function isAutoAllowBashIfSandboxedEnabled(): boolean {
 }
 
 function areUnsandboxedCommandsAllowed(): boolean {
+  // An explicit --sandbox request is a hard boundary for this session;
+  // command-level bypass flags must not silently escape it.
+  if (process.env.CLAUDE_CODE_SANDBOX_OVERRIDE === '1') return false
   const settings = getSettings_DEPRECATED()
   return settings?.sandbox?.allowUnsandboxedCommands ?? true
 }
 
 function isSandboxRequired(): boolean {
+  if (process.env.CLAUDE_CODE_SANDBOX_OVERRIDE === '1') return true
   const settings = getSettings_DEPRECATED()
   return (
     getSandboxEnabledSetting() &&

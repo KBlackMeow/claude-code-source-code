@@ -53,6 +53,7 @@ const agentsPlatform =
 import securityReview from './commands/security-review.js'
 import bughunter from './commands/bughunter/index.js'
 import terminalSetup from './commands/terminalSetup/index.js'
+import { isCustomizationDisabled } from './utils/envUtils.js'
 import usage from './commands/usage/index.js'
 import theme from './commands/theme/index.js'
 import vim from './commands/vim/index.js'
@@ -356,6 +357,16 @@ async function getSkills(cwd: string): Promise<{
   bundledSkills: Command[]
   builtinPluginSkills: Command[]
 }> {
+  // Safe/bare mode keeps built-in commands available but excludes all
+  // project, user, plugin, and workflow-provided command definitions.
+  if (isCustomizationDisabled()) {
+    return {
+      skillDirCommands: [],
+      pluginSkills: [],
+      bundledSkills: getBundledSkills(),
+      builtinPluginSkills: [],
+    }
+  }
   try {
     const [skillDirCommands, pluginSkills] = await Promise.all([
       getSkillDirCommands(cwd).catch(err => {
@@ -453,8 +464,10 @@ const loadAllCommands = memoize(async (cwd: string): Promise<Command[]> => {
     workflowCommands,
   ] = await Promise.all([
     getSkills(cwd),
-    getPluginCommands(),
-    getWorkflowCommands ? getWorkflowCommands(cwd) : Promise.resolve([]),
+    isCustomizationDisabled() ? Promise.resolve([]) : getPluginCommands(),
+    isCustomizationDisabled() || !getWorkflowCommands
+      ? Promise.resolve([])
+      : getWorkflowCommands(cwd),
   ])
 
   return [

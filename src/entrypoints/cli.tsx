@@ -33,6 +33,13 @@ if (feature('ABLATION_BASELINE') && process.env.CLAUDE_CODE_ABLATION_BASELINE) {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
+  // Detached background children update their registry record on exit,
+  // including fast paths such as --version that return before full startup.
+  if (process.env.CLAUDE_CODE_BACKGROUND_SESSION) {
+    const bg = await import('../cli/bg.js');
+    bg.installBackgroundExitHandler();
+  }
+
   // Fast-path for --version/-v: zero module loading needed
   if (args.length === 1 && (args[0] === '--version' || args[0] === '-v' || args[0] === '-V')) {
     // MACRO.VERSION is inlined at build time
@@ -179,10 +186,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Fast-path for `claude ps|logs|attach|kill` and `--bg`/`--background`.
+  // Fast-path for `claude agents|ps|logs|attach|stop|rm|respawn` and `--bg`/`--background`.
   // Session management against the ~/.claude/sessions/ registry. Flag
   // literals are inlined so bg.js only loads when actually dispatching.
-  if (feature('BG_SESSIONS') && (args[0] === 'ps' || args[0] === 'logs' || args[0] === 'attach' || args[0] === 'kill' || args.includes('--bg') || args.includes('--background'))) {
+  if (feature('BG_SESSIONS') && (['agents', 'ps', 'logs', 'attach', 'kill', 'stop', 'rm', 'respawn'].includes(args[0] || '') || args.includes('--bg') || args.includes('--background'))) {
     profileCheckpoint('cli_bg_path');
     const {
       enableConfigs
@@ -190,6 +197,7 @@ async function main(): Promise<void> {
     enableConfigs();
     const bg = await import('../cli/bg.js');
     switch (args[0]) {
+      case 'agents':
       case 'ps':
         await bg.psHandler(args.slice(1));
         break;
@@ -197,10 +205,17 @@ async function main(): Promise<void> {
         await bg.logsHandler(args[1]);
         break;
       case 'attach':
-        await bg.attachHandler(args[1]);
+        await bg.attachHandler(args[1], args.includes('--follow'));
         break;
       case 'kill':
+      case 'stop':
         await bg.killHandler(args[1]);
+        break;
+      case 'rm':
+        await bg.removeHandler(args[1]);
+        break;
+      case 'respawn':
+        await bg.respawnHandler(args[1]);
         break;
       default:
         await bg.handleBgFlag(args);
@@ -282,6 +297,30 @@ async function main(): Promise<void> {
   // option building (not just inside the action handler).
   if (args.includes('--bare')) {
     process.env.CLAUDE_CODE_SIMPLE = '1';
+  }
+  if (args.includes('--safe-mode')) {
+    process.env.CLAUDE_CODE_SAFE_MODE = '1';
+  }
+  if (args.includes('--sandbox')) {
+    process.env.CLAUDE_CODE_SANDBOX_OVERRIDE = '1';
+  } else if (args.includes('--no-sandbox')) {
+    process.env.CLAUDE_CODE_SANDBOX_OVERRIDE = '0';
+  }
+  const snapshotIndex = args.indexOf('--system-prompt-snapshot');
+  if (snapshotIndex !== -1 && args[snapshotIndex + 1] === 'off') {
+    process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF = '1';
+  } else if (snapshotIndex !== -1 && args[snapshotIndex + 1] === 'on') {
+    delete process.env.CLAUDE_CODE_SYSTEM_PROMPT_SNAPSHOT_OFF;
+  }
+  if (
+    args.includes('--restricted') &&
+    args.includes('--dangerously-skip-permissions')
+  ) {
+    process.stderr.write(
+      '--restricted cannot be combined with --dangerously-skip-permissions\n',
+    )
+    process.exitCode = 1
+    return
   }
 
   // No special flags detected, load and run the full CLI

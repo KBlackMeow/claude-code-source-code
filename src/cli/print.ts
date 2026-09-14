@@ -595,6 +595,12 @@ export async function runHeadless(
     installStreamJsonStdoutGuard()
   }
 
+  if (process.env.CLAUDE_CODE_SANDBOX_OVERRIDE === '0') {
+    process.stderr.write(
+      '\n⚠ Sandbox explicitly disabled (--no-sandbox). Commands run with the current user permissions; filesystem and network isolation are not active.\n\n',
+    )
+  }
+
   // #34044: if user explicitly set sandbox.enabled=true but deps are missing,
   // isSandboxingEnabled() returns false silently. Surface the reason so users
   // know their security config isn't being enforced.

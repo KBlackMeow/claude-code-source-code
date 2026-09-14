@@ -101,6 +101,9 @@ const TEAMMATE_ENV_VARS = [
   'CLAUDE_CODE_USE_FOUNDRY',
   // Custom API endpoint
   'ANTHROPIC_BASE_URL',
+  'OPENAI_BASE_URL',
+  'OPENAI_API_KEY',
+  'OPENAI_MODEL',
   // Config directory override
   'CLAUDE_CONFIG_DIR',
   // CCR marker — teammates need this for CCR-aware code paths. Auth finds

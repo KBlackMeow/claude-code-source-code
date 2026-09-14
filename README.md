@@ -313,13 +313,19 @@ node dist/cli.js --use-env
 
 > **Note**: The `--use-env` flag requires our patches in `src/main.tsx` to be compiled into the bundle. If using the pre-built `dist/cli.js`, rebuild after modifying any source files: `node scripts/build.mjs`.
 
+For the reproducible CLI smoke gate (build plus version/help, sandbox, and background checks), run `npm run smoke`.
+For the platform-independent path/encoding/exit-code smoke check, run `npm run smoke:platform`.
+
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `ANTHROPIC_API_KEY` | **Yes** | Your Anthropic API key |
 | `ANTHROPIC_BASE_URL` | No | Custom API endpoint (useful for proxies) |
+| `OPENAI_API_KEY` | No | OpenAI-compatible API key fallback when `ANTHROPIC_API_KEY` is unset |
+| `OPENAI_BASE_URL` | No | OpenAI-compatible endpoint fallback (usually ending in `/v1`) |
 | `CLAUDE_CODE_MODEL_OVERRIDE` | No | Override the model, e.g. `claude-sonnet-4-6` |
+| `OPENAI_MODEL` | No | Model ID fallback for OpenAI-compatible endpoints |
 
 ### How It Works
 
@@ -329,8 +335,8 @@ node dist/cli.js --use-env
 
 1. Loads `.env` via `dotenv`
 2. Sets `CLAUDE_CODE_USE_ENV_ONLY=true` to bypass OAuth login, keychain, and config file lookups
-3. Reads `ANTHROPIC_API_KEY` directly from the environment
-4. Supports `ANTHROPIC_BASE_URL` for custom API routes
+3. Reads `ANTHROPIC_API_KEY` directly from the environment, or `OPENAI_API_KEY` as a compatibility fallback
+4. Supports `ANTHROPIC_BASE_URL` for custom API routes, or `OPENAI_BASE_URL` as a fallback
 5. `CLAUDE_CODE_MODEL_OVERRIDE` lets you force a specific model
 
 > **Note**: This source is decompiled and may have subtle incompatibilities with the official `@anthropic-ai/claude-code` npm package. See [Build Notes](#build-notes) below.

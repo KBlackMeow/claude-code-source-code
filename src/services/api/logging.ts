@@ -139,6 +139,7 @@ function detectGateway({
 }
 
 function getAnthropicEnvMetadata() {
+  const configuredModel = process.env.ANTHROPIC_MODEL || process.env.OPENAI_MODEL
   return {
     ...(process.env.ANTHROPIC_BASE_URL
       ? {
@@ -146,10 +147,9 @@ function getAnthropicEnvMetadata() {
             .ANTHROPIC_BASE_URL as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         }
       : {}),
-    ...(process.env.ANTHROPIC_MODEL
+    ...(configuredModel
       ? {
-          envModel: process.env
-            .ANTHROPIC_MODEL as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          envModel: configuredModel as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         }
       : {}),
     ...(process.env.ANTHROPIC_SMALL_FAST_MODEL
@@ -274,7 +274,7 @@ export function logAPIError({
   const gateway = detectGateway({
     headers:
       error instanceof APIError && error.headers ? error.headers : headers,
-    baseUrl: process.env.ANTHROPIC_BASE_URL,
+    baseUrl: process.env.ANTHROPIC_BASE_URL || process.env.OPENAI_BASE_URL,
   })
 
   const errStr = getErrorMessage(error)
@@ -640,7 +640,7 @@ export function logAPISuccessAndDuration({
 }): void {
   const gateway = detectGateway({
     headers,
-    baseUrl: process.env.ANTHROPIC_BASE_URL,
+    baseUrl: process.env.ANTHROPIC_BASE_URL || process.env.OPENAI_BASE_URL,
   })
 
   let textContentLength: number | undefined

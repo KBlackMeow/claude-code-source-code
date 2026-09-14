@@ -115,7 +115,9 @@ import { count } from './utils/array.js'
 const snipModule = feature('HISTORY_SNIP')
   ? (require('./services/compact/snipCompact.js') as typeof import('./services/compact/snipCompact.js'))
   : null
-const taskSummaryModule = feature('BG_SESSIONS')
+// Background session process management is available independently of the
+// unrecovered periodic task-summary module.
+const taskSummaryModule = feature('BG_TASK_SUMMARY')
   ? (require('./utils/taskSummary.js') as typeof import('./utils/taskSummary.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -181,6 +183,8 @@ function isWithheldMaxOutputTokens(
 export type QueryParams = {
   messages: Message[]
   systemPrompt: SystemPrompt
+  /** Rebuild the system prompt before each model request when snapshot reuse is disabled. */
+  getSystemPrompt?: () => Promise<SystemPrompt>
   userContext: { [k: string]: string }
   systemContext: { [k: string]: string }
   canUseTool: CanUseToolFn
@@ -251,7 +255,8 @@ async function* queryLoop(
 > {
   // Immutable params — never reassigned during the query loop.
   const {
-    systemPrompt,
+    systemPrompt: initialSystemPrompt,
+    getSystemPrompt,
     userContext,
     systemContext,
     canUseTool,
@@ -446,6 +451,9 @@ async function* queryLoop(
       messagesForQuery = collapseResult.messages
     }
 
+    const systemPrompt = getSystemPrompt
+      ? await getSystemPrompt()
+      : initialSystemPrompt
     const fullSystemPrompt = asSystemPrompt(
       appendSystemContext(systemPrompt, systemContext),
     )
@@ -1682,7 +1690,7 @@ async function* queryLoop(
     // long-running agent still refreshes what it's working on. Gated
     // only on !agentId so every top-level conversation (REPL, SDK, HFI,
     // remote) generates summaries; subagents/forks don't.
-    if (feature('BG_SESSIONS')) {
+    if (feature('BG_TASK_SUMMARY')) {
       if (
         !toolUseContext.agentId &&
         taskSummaryModule!.shouldGenerateTaskSummary()

@@ -65,6 +65,23 @@ export function isBareMode(): boolean {
 }
 
 /**
+ * --safe-mode disables project/user extensions without changing the auth
+ * provider or the built-in tool set. It is intentionally distinct from
+ * --bare, which also disables credential-store access and other runtime work.
+ */
+export function isSafeMode(): boolean {
+  return (
+    isEnvTruthy(process.env.CLAUDE_CODE_SAFE_MODE) ||
+    process.argv.includes('--safe-mode')
+  )
+}
+
+/** Modes that must not discover user or project supplied extensions. */
+export function isCustomizationDisabled(): boolean {
+  return isBareMode() || isSafeMode()
+}
+
+/**
  * Parses an array of environment variable strings into a key-value object
  * @param envVars Array of strings in KEY=VALUE format
  * @returns Object with key-value pairs
