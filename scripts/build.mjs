@@ -19,7 +19,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, cp, rm, stat, chmod } from 'node:fs/promises'
-import { join, dirname, relative, resolve } from 'node:path'
+import { join, dirname, relative, resolve, isAbsolute } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -29,8 +29,8 @@ const ROOT = join(__dirname, '..')
 const VERSION = '2.1.88'
 const BUILD = join(ROOT, 'build-src')
 const ENTRY = join(BUILD, 'entry.ts')
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
 const require = createRequire(import.meta.url)
+const esbuildBin = join(ROOT, 'node_modules', 'esbuild', 'bin', 'esbuild')
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -45,11 +45,10 @@ async function* walk(dir) {
 async function exists(p) { try { await stat(p); return true } catch { return false } }
 
 async function ensureEsbuild() {
-  try { execFileSync(npx, ['esbuild', '--version'], { stdio: 'pipe' }) }
+  try { execFileSync(process.execPath, [esbuildBin, '--version'], { stdio: 'pipe' }) }
   catch {
     console.log('📦 Installing esbuild...')
-    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-    execFileSync(npm, ['install', '--save-dev', 'esbuild'], { cwd: ROOT, stdio: 'inherit' })
+    throw new Error('esbuild is unavailable. Run "npm install" from the project root, then retry.')
   }
 }
 
@@ -165,7 +164,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
 
   let esbuildOutput = ''
   try {
-    esbuildOutput = execFileSync(npx, ['esbuild',
+    esbuildOutput = execFileSync(process.execPath, [esbuildBin,
       ENTRY,
       '--bundle',
       '--platform=node',
@@ -212,7 +211,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
     if (!modMatch) continue
 
     const mod = modMatch[1]
-    if (mod.startsWith('node:') || mod.startsWith('bun:') || mod.startsWith('/')) {
+    if (mod.startsWith('node:') || mod.startsWith('bun:') || isAbsolute(mod)) {
       continue
     }
 
@@ -235,7 +234,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
       if (!exportMatch) continue
       const modulePath = exportMatch[1]
       const exportName = exportMatch[2]
-      if (modulePath.startsWith('node:') || modulePath.startsWith('bun:') || modulePath.startsWith('/')) {
+      if (modulePath.startsWith('node:') || modulePath.startsWith('bun:') || isAbsolute(modulePath)) {
         continue
       }
       if (!exportFixes.has(modulePath)) exportFixes.set(modulePath, new Set())

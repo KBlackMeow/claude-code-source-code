@@ -8,6 +8,9 @@ import { registerBundledSkill } from '../bundledSkills.js'
  * This keeps the skill prompt in sync with the actual types.
  */
 function generateSettingsSchema(): string {
+  // SettingsSchema normalizes a legacy permission mode with `.transform()`.
+  // JSON Schema has no equivalent for arbitrary runtime transforms; this schema
+  // is documentation for the skill, while SettingsSchema remains the validator.
   const jsonSchema = toJSONSchema(SettingsSchema(), { io: 'input' })
   return jsonStringify(jsonSchema, null, 2)
 }
