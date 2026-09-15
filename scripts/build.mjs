@@ -30,7 +30,13 @@ const VERSION = '2.1.88'
 const BUILD = join(ROOT, 'build-src')
 const ENTRY = join(BUILD, 'entry.ts')
 const require = createRequire(import.meta.url)
-const esbuildBin = join(ROOT, 'node_modules', 'esbuild', 'bin', 'esbuild')
+// esbuild's top-level launcher is an extensionless native executable. Unix can
+// execute that file directly, but Windows' CreateProcess looks for an `.exe`
+// and cannot launch it by this path. Use the platform package's real executable
+// on Windows; this is the same optional package installed by `npm ci`.
+const esbuildBin = process.platform === 'win32'
+  ? join(ROOT, 'node_modules', '@esbuild', `win32-${process.arch}`, 'esbuild.exe')
+  : join(ROOT, 'node_modules', 'esbuild', 'bin', 'esbuild')
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
