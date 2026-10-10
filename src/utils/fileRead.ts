@@ -17,6 +17,18 @@ import { getFsImplementation, safeResolvePath } from './fsOperations.js'
 
 export type LineEndingType = 'CRLF' | 'LF'
 
+export function hasValidTextEncoding(
+  buffer: Buffer,
+  encoding: BufferEncoding,
+): boolean {
+  try {
+    new TextDecoder(encoding, { fatal: true }).decode(buffer)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function detectEncodingForResolvedPath(
   resolvedPath: string,
 ): BufferEncoding {
@@ -85,7 +97,11 @@ export function readFileSyncWithMetadata(filePath: string): {
   }
 
   const encoding = detectEncodingForResolvedPath(resolvedPath)
-  const raw = fs.readFileSync(resolvedPath, { encoding })
+  const buffer = fs.readFileBytesSync(resolvedPath)
+  if (!hasValidTextEncoding(buffer, encoding)) {
+    throw new Error(`File has invalid ${encoding} content: ${filePath}`)
+  }
+  const raw = buffer.toString(encoding)
   // Detect line endings from the raw head before CRLF normalization erases
   // the distinction. 4096 code units is ≥ detectLineEndings's 4096-byte
   // readSync sample (line endings are ASCII, so the unit mismatch is moot).

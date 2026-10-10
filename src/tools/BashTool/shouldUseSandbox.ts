@@ -145,7 +145,10 @@ export function shouldUseSandbox(input: Partial<SandboxInput>): boolean {
   }
 
   // Don't sandbox if the command contains user-configured excluded commands
-  if (containsExcludedCommand(input.command)) {
+  if (
+    SandboxManager.areUnsandboxedCommandsAllowed() &&
+    containsExcludedCommand(input.command)
+  ) {
     return false
   }
 

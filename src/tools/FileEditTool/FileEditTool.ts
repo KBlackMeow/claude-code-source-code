@@ -32,6 +32,7 @@ import {
 import { logFileOperation } from '../../utils/fileOperationAnalytics.js'
 import {
   type LineEndingType,
+  hasValidTextEncoding,
   readFileSyncWithMetadata,
 } from '../../utils/fileRead.js'
 import { formatFileSize } from '../../utils/format.js'
@@ -211,6 +212,14 @@ export const FileEditTool = buildTool({
         fileBuffer[1] === 0xfe
           ? 'utf16le'
           : 'utf8'
+      if (!hasValidTextEncoding(fileBuffer, encoding)) {
+        return {
+          result: false,
+          behavior: 'ask',
+          message: `File has invalid ${encoding} content and cannot be safely edited.`,
+          errorCode: 11,
+        }
+      }
       fileContent = fileBuffer.toString(encoding).replaceAll('\r\n', '\n')
     } catch (e) {
       if (isENOENT(e)) {

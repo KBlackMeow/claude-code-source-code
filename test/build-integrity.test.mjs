@@ -46,12 +46,6 @@ test('type checking includes stubs without violating rootDir', async () => {
 })
 
 test('the built CLI loads with the real sandbox runtime', () => {
-  const build = spawnSync(process.execPath, ['scripts/build.mjs'], {
-    cwd: root,
-    encoding: 'utf8',
-  })
-  assert.equal(build.status, 0, build.stderr || build.stdout)
-
   const cli = spawnSync(process.execPath, ['dist/cli.js', '--help'], {
     cwd: root,
     encoding: 'utf8',
@@ -222,6 +216,20 @@ test('build emits a replacement manifest that identifies the real sandbox runtim
   assert.ok(manifest.enabledFeatures.includes('TRANSCRIPT_CLASSIFIER'))
   assert.ok(manifest.enabledFeatures.includes('BG_SESSIONS'))
   assert.ok(!manifest.generatedStubs.some(path => path.endsWith('utils/taskSummary.js')))
+  const criticalModules = [
+    'src/tools/BashTool/',
+    'src/tools/FileReadTool/',
+    'src/tools/FileEditTool/',
+    'src/utils/sandbox/',
+    'src/utils/permissions/',
+    'src/utils/Shell.',
+  ]
+  for (const stub of manifest.generatedStubs) {
+    assert.ok(
+      !criticalModules.some(modulePath => stub.includes(modulePath)),
+      `Critical module was replaced with a stub: ${stub}`,
+    )
+  }
 })
 
 test('platform CI keeps the three-OS and Node matrix', async () => {
